@@ -4,7 +4,7 @@ use axum::{
     Json, Router,
 };
 use chrono::NaiveDateTime;
-use redis::{FromRedisValue, JsonCommands};
+use redis::{Commands, FromRedisValue, JsonCommands};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
@@ -49,7 +49,6 @@ struct StoreTaskPayload {
 #[derive(Serialize, Deserialize, Debug)]
 struct UpdateCredentialsPayload {
     user_name: String,
-    task: Task,
 }
 
 impl FromRedisValue for UserData {
@@ -138,6 +137,30 @@ fn perform_reset_task() -> Result<UserData, redis::RedisError> {
     Ok(user_data)
 }
 
+fn perform_update_credentials(payload: UpdateCredentialsPayload) -> Result<(), redis::RedisError> {
+    let client = redis::Client::open(
+        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
+        // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
+    )?;
+    let mut con = client.get_connection()?;
+
+    match con.get::<&str, i32>("current_id") {
+        Ok(id) => {
+            let new_id = id + 1;
+            // con.set("current_id", new_id)?;
+            // con.set(new_id, payload.user_name)?;
+            println!("new_id: {}", new_id);
+        }
+        Err(err) => {
+            con.set("current_id", 0)?;
+            // con.set(0, payload.user_name)?;
+            println!("no current_id: {:?}", err);
+        }
+    }
+
+    Ok(())
+}
+
 async fn store_task(
     extract::Json(payload): extract::Json<StoreTaskPayload>,
 ) -> Json<serde_json::Value> {
@@ -161,6 +184,7 @@ async fn update_credentials(
     extract::Json(payload): extract::Json<UpdateCredentialsPayload>,
 ) -> Json<serde_json::Value> {
     println!("payload: {:?}", payload);
+    perform_update_credentials(payload).unwrap();
     Json(serde_json::json!({
         "status": "ok",
     }))
