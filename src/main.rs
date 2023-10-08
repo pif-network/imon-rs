@@ -1,8 +1,4 @@
-use axum::{
-    extract,
-    routing::{get, post},
-    Json, Router,
-};
+use axum::{extract, routing::post, Json, Router};
 use chrono::NaiveDateTime;
 use redis::{Commands, FromRedisValue, JsonCommands};
 use serde::{Deserialize, Serialize};
@@ -75,6 +71,11 @@ struct UpdateCredentialsPayload {
     user_name: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct ResetUserDataPayload {
+    key: String,
+}
+
 impl FromRedisValue for UserData {
     fn from_redis_value(v: &redis::Value) -> redis::RedisResult<UserData> {
         match *v {
@@ -122,7 +123,7 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
     Ok(())
 }
 
-fn perform_reset_task() -> Result<UserData, redis::RedisError> {
+fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::RedisError> {
     let client = redis::Client::open(
         "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
@@ -130,16 +131,15 @@ fn perform_reset_task() -> Result<UserData, redis::RedisError> {
     let mut con = client.get_connection()?;
 
     let user_data = UserData {
+        id: payload.key.parse::<i32>().unwrap(),
         task_history: vec![],
-        current_task: Task {
-            name: "reset".to_string(),
-            state: TaskState::Begin,
-            begin_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-            end_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-            duration: "".to_string(),
-        },
+        current_task: Task::placeholder("reset", TaskState::Idle),
     };
-    con.json_set("task", "$", &serde_json::json!(user_data))?;
+    con.json_set(
+        &payload.key,
+        RedisKey::Root.to_string().as_str(),
+        &serde_json::json!(user_data),
+    )?;
 
     Ok(user_data)
 }
@@ -189,8 +189,10 @@ async fn store_task(
     }))
 }
 
-async fn reset_task() -> Json<serde_json::Value> {
-    let user_data = perform_reset_task().unwrap();
+async fn reset_task(
+    extract::Json(payload): extract::Json<ResetUserDataPayload>,
+) -> Json<serde_json::Value> {
+    let user_data = perform_reset_task(payload).unwrap();
 
     Json(serde_json::json!({
         "status": "ok",
@@ -212,7 +214,7 @@ async fn update_credentials(
 async fn axum() -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
         .route("/", post(store_task))
-        .route("/reset", get(reset_task))
+        .route("/reset", post(reset_task))
         .route("/api/v1/credentials", post(update_credentials));
 
     Ok(router.into())
