@@ -213,9 +213,9 @@ async fn update_credentials(
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
-        .route("/", post(store_task))
-        .route("/reset", post(reset_task))
-        .route("/api/v1/credentials", post(update_credentials));
+        .route("/v1/store", post(store_task))
+        .route("/v1/reset", post(reset_task))
+        .route("/v1/credentials", post(update_credentials));
 
     Ok(router.into())
 }
