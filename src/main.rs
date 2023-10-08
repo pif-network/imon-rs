@@ -13,6 +13,7 @@ enum TaskState {
     Begin,
     Break,
     End,
+    Idle,
 }
 
 #[derive(Debug, Display)]
@@ -34,8 +35,31 @@ struct Task {
     duration: String,
 }
 
+impl Default for Task {
+    fn default() -> Self {
+        Task {
+            name: String::new(),
+            state: TaskState::Begin,
+            begin_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
+            end_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
+            duration: String::new(),
+        }
+    }
+}
+
+impl Task {
+    fn placeholder(name: &str, state: TaskState) -> Self {
+        Task {
+            name: name.to_string(),
+            state,
+            ..Task::default()
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct UserData {
+    id: i32,
     task_history: Vec<Task>,
     current_task: Task,
 }
@@ -75,23 +99,6 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
     ) {
         Ok(data) => {
             println!("user_data: {:?}", data);
-            if data.len() == 0 {
-                let user_data = UserData {
-                    task_history: vec![],
-                    current_task: Task {
-                        name: "reset".to_string(),
-                        state: TaskState::Begin,
-                        begin_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-                        end_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-                        duration: "".to_string(),
-                    },
-                };
-                con.json_set(
-                    &payload.user_name,
-                    RedisKey::Root.to_string().as_str(),
-                    &serde_json::json!(user_data),
-                )?;
-            }
         }
         Err(err) => {
             println!("err: {:?}", err);
@@ -145,11 +152,22 @@ fn perform_update_credentials(payload: UpdateCredentialsPayload) -> Result<(), r
     let mut con = client.get_connection()?;
 
     match con.get::<&str, i32>("current_id") {
-        Ok(id) => {
-            let new_id = id + 1;
-            // con.set("current_id", new_id)?;
-            // con.set(new_id, payload.user_name)?;
-            println!("new_id: {}", new_id);
+        Ok(current_id) => {
+            let new_id = current_id + 1;
+            con.set("current_id", new_id)?;
+
+            let user_data = UserData {
+                id: new_id,
+                task_history: vec![],
+                current_task: Task::placeholder("initialised", TaskState::Idle),
+            };
+            con.json_set(
+                &payload.user_name,
+                RedisKey::Root.to_string().as_str(),
+                &serde_json::json!(user_data),
+            )?;
+
+            println!("new user: {:?}", user_data);
         }
         Err(err) => {
             con.set("current_id", 0)?;
