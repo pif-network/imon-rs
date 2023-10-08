@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.6.18"
+axum = { version = "0.6.18", features = ["macros"] }
 chrono = "0.4.30"
 redis = { version = "0.23.3", features = ["tls-native-tls", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
