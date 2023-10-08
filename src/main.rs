@@ -1,3 +1,5 @@
+use std::iter::successors;
+
 use axum::{extract, routing::post, Json, Router};
 use chrono::NaiveDateTime;
 use redis::{Commands, FromRedisValue, JsonCommands};
@@ -144,6 +146,12 @@ fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::
     Ok(user_data)
 }
 
+fn generate_key(user_name: &str, id: i32) -> String {
+    let id_length = successors(Some(id), |&n| (n >= 10).then(|| n / 10)).count();
+    let filler_length = 4 - id_length;
+    format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
+}
+
 fn perform_update_credentials(payload: UpdateCredentialsPayload) -> Result<(), redis::RedisError> {
     let client = redis::Client::open(
         "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
@@ -151,30 +159,33 @@ fn perform_update_credentials(payload: UpdateCredentialsPayload) -> Result<(), r
     )?;
     let mut con = client.get_connection()?;
 
+    let new_id;
+
     match con.get::<&str, i32>("current_id") {
         Ok(current_id) => {
-            let new_id = current_id + 1;
+            new_id = current_id + 1;
             con.set("current_id", new_id)?;
-
-            let user_data = UserData {
-                id: new_id,
-                task_history: vec![],
-                current_task: Task::placeholder("initialised", TaskState::Idle),
-            };
-            con.json_set(
-                &payload.user_name,
-                RedisKey::Root.to_string().as_str(),
-                &serde_json::json!(user_data),
-            )?;
-
-            println!("new user: {:?}", user_data);
         }
         Err(err) => {
+            new_id = 0;
             con.set("current_id", 0)?;
-            // con.set(0, payload.user_name)?;
-            println!("no current_id: {:?}", err);
+
+            println!("err: {:?}", err);
         }
     }
+
+    let user_data = UserData {
+        id: new_id,
+        task_history: vec![],
+        current_task: Task::placeholder("initialised", TaskState::Idle),
+    };
+    con.json_set(
+        generate_key(&payload.user_name, new_id),
+        RedisKey::Root.to_string().as_str(),
+        &serde_json::json!(user_data),
+    )?;
+
+    println!("new user: {:?}", user_data);
 
     Ok(())
 }
