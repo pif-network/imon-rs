@@ -152,7 +152,9 @@ fn generate_key(user_name: &str, id: i32) -> String {
     format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
 }
 
-fn perform_update_credentials(payload: UpdateCredentialsPayload) -> Result<(), redis::RedisError> {
+fn perform_update_credentials(
+    payload: UpdateCredentialsPayload,
+) -> Result<String, redis::RedisError> {
     let client = redis::Client::open(
         "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
@@ -174,20 +176,22 @@ fn perform_update_credentials(payload: UpdateCredentialsPayload) -> Result<(), r
         }
     }
 
+    let user_key = generate_key(&payload.user_name, new_id);
+
     let user_data = UserData {
         id: new_id,
         task_history: vec![],
         current_task: Task::placeholder("initialised", TaskState::Idle),
     };
     con.json_set(
-        generate_key(&payload.user_name, new_id),
+        &user_key,
         RedisKey::Root.to_string().as_str(),
         &serde_json::json!(user_data),
     )?;
 
     println!("new user: {:?}", user_data);
 
-    Ok(())
+    Ok(user_key)
 }
 
 async fn store_task(
@@ -215,9 +219,12 @@ async fn update_credentials(
     extract::Json(payload): extract::Json<UpdateCredentialsPayload>,
 ) -> Json<serde_json::Value> {
     println!("payload: {:?}", payload);
-    perform_update_credentials(payload).unwrap();
+    let user_key = perform_update_credentials(payload).unwrap();
     Json(serde_json::json!({
         "status": "ok",
+        "data": {
+            "user_key": user_key,
+        }
     }))
 }
 
