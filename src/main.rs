@@ -194,14 +194,33 @@ fn perform_update_credentials(
     Ok(user_key)
 }
 
+fn construct_error_response(err: redis::RedisError) -> serde_json::Value {
+    match err.kind() {
+        redis::ErrorKind::ResponseError => serde_json::json!({
+            "status": "error",
+            // FIXME: Most of the time, this error means that the user has not
+            // registered yet, but it is still not the best way to handle.
+            "message": "Invalid credentials",
+        }),
+        _ => serde_json::json!({
+            "status": "error",
+            "message": err.to_string(),
+        }),
+    }
+}
+
 async fn store_task(
     extract::Json(payload): extract::Json<StoreTaskPayload>,
 ) -> Json<serde_json::Value> {
-    perform_store_task(payload).unwrap();
-
-    Json(serde_json::json!({
-        "status": "ok",
-    }))
+    match perform_store_task(payload) {
+        Ok(_) => Json(serde_json::json!({
+            "status": "ok",
+        })),
+        Err(err) => {
+            let error_response = construct_error_response(err);
+            Json(error_response)
+        }
+    }
 }
 
 async fn reset_task(
