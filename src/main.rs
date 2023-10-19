@@ -1,6 +1,6 @@
 use std::iter::successors;
 
-use axum::{extract, routing::post, Json, Router};
+use axum::{extract, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use chrono::NaiveDateTime;
 use redis::{Commands, FromRedisValue, JsonCommands};
 use serde::{Deserialize, Serialize};
@@ -219,14 +219,14 @@ fn construct_error_response(err: redis::RedisError) -> serde_json::Value {
 
 async fn store_task(
     extract::Json(payload): extract::Json<StoreTaskPayload>,
-) -> Json<serde_json::Value> {
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     match perform_store_task(payload) {
-        Ok(_) => Json(serde_json::json!({
+        Ok(_) => Ok(Json(serde_json::json!({
             "status": "ok",
-        })),
+        }))),
         Err(err) => {
             let error_response = construct_error_response(err);
-            Json(error_response)
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
 }
