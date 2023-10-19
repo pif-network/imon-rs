@@ -96,11 +96,12 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
     )?;
     let mut con = client.get_connection()?;
-    match con.json_get::<&std::string::String, &str, Vec<UserData>>(
+    match con.json_get::<&std::string::String, &str, String>(
         &payload.user_name,
         RedisKey::Root.to_string().as_str(),
     ) {
-        Ok(data) => {
+        Ok(data_str) => {
+            let data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
             println!("user_data: {:?}", data);
         }
         Err(err) => {
