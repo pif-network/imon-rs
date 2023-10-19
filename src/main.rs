@@ -96,34 +96,41 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
     )?;
     let mut con = client.get_connection()?;
-    match con.json_get::<&std::string::String, &str, String>(
+    match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.user_name,
         RedisKey::Root.to_string().as_str(),
     ) {
-        Ok(data_str) => {
-            let data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
-            println!("user_data: {:?}", data);
-        }
+        Ok(data_str) => match data_str {
+            Some(data_str) => {
+                let user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
+                println!("user_data: {:?}", user_data);
+                println!("appending");
+                con.json_arr_append(
+                    &payload.user_name,
+                    RedisKey::TaskHistory.to_string().as_str(),
+                    &serde_json::json!(&payload.task),
+                )?;
+
+                println!("setting current task");
+                con.json_set(
+                    &payload.user_name,
+                    RedisKey::CurrentTask.to_string().as_str(),
+                    &serde_json::json!(&payload.task),
+                )?;
+
+                Ok(())
+            }
+            None => Err(redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                // Redis gives nil -> no key -> no user.
+                "User not found.",
+            ))),
+        },
         Err(err) => {
             println!("err: {:?}", err);
+            return Err(err);
         }
     }
-
-    println!("appending");
-    con.json_arr_append(
-        &payload.user_name,
-        RedisKey::TaskHistory.to_string().as_str(),
-        &serde_json::json!(&payload.task),
-    )?;
-
-    println!("setting current task");
-    con.json_set(
-        &payload.user_name,
-        RedisKey::CurrentTask.to_string().as_str(),
-        &serde_json::json!(&payload.task),
-    )?;
-
-    Ok(())
 }
 
 fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::RedisError> {
