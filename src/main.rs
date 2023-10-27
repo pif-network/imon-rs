@@ -141,7 +141,9 @@ fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::
     let mut con = client.get_connection()?;
 
     let user_data = UserData {
-        id: payload.key.parse::<i32>().unwrap(),
+        id: payload.key.split(":").collect::<Vec<&str>>()[1]
+            .parse::<i32>()
+            .unwrap(),
         task_history: vec![],
         current_task: Task::placeholder("reset", TaskState::Idle),
     };
