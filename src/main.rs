@@ -10,6 +10,7 @@ use strum_macros::Display;
 enum TaskState {
     Begin,
     Break,
+    Back,
     End,
     Idle,
 }
@@ -30,7 +31,7 @@ struct Task {
     state: TaskState,
     begin_time: NaiveDateTime,
     end_time: NaiveDateTime,
-    duration: String,
+    duration: i64,
 }
 
 impl Default for Task {
@@ -40,7 +41,7 @@ impl Default for Task {
             state: TaskState::Begin,
             begin_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
             end_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-            duration: String::new(),
+            duration: 0,
         }
     }
 }
