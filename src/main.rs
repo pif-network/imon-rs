@@ -79,6 +79,11 @@ struct ResetUserDataPayload {
     key: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct GetTaskLogPayload {
+    key: String,
+}
+
 impl FromRedisValue for UserData {
     fn from_redis_value(v: &redis::Value) -> redis::RedisResult<UserData> {
         match *v {
@@ -205,6 +210,38 @@ fn perform_update_credentials(
     Ok(user_key)
 }
 
+fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<(), redis::RedisError> {
+    let client = redis::Client::open(
+        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
+        // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
+    )?;
+    let mut con = client.get_connection()?;
+
+    match con.json_get::<&std::string::String, &str, Option<String>>(
+        &payload.key,
+        RedisKey::Root.to_string().as_str(),
+    ) {
+        Ok(data_str) => match data_str {
+            Some(data_str) => {
+                let user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
+                println!("user_data: {:?}", user_data);
+                println!("appending");
+
+                Ok(())
+            }
+            None => Err(redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                // Redis gives nil -> no key -> no user.
+                "User not found.",
+            ))),
+        },
+        Err(err) => {
+            println!("err: {:?}", err);
+            return Err(err);
+        }
+    }
+}
+
 fn construct_error_response(err: redis::RedisError) -> serde_json::Value {
     match err.kind() {
         redis::ErrorKind::ResponseError => serde_json::json!({
@@ -258,12 +295,25 @@ async fn update_credentials(
     }))
 }
 
+async fn get_task_log(
+    extract::Json(payload): extract::Json<GetTaskLogPayload>,
+) -> Json<serde_json::Value> {
+    perform_get_user_task_log(payload).unwrap();
+    Json(serde_json::json!({
+        "status": "ok",
+        "data": {
+            "task_log": "",
+        }
+    }))
+}
+
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
         .route("/v1/store", post(store_task))
         .route("/v1/reset", post(reset_task))
-        .route("/v1/credentials", post(update_credentials));
+        .route("/v1/credentials", post(update_credentials))
+        .route("/v1/task-log", post(get_task_log));
 
     Ok(router.into())
 }
