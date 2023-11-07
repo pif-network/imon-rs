@@ -210,7 +210,7 @@ fn perform_update_credentials(
     Ok(user_key)
 }
 
-fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<(), redis::RedisError> {
+fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<UserData, redis::RedisError> {
     let client = redis::Client::open(
         "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
@@ -227,7 +227,7 @@ fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<(), redis::Re
                 println!("user_data: {:?}", user_data);
                 println!("appending");
 
-                Ok(())
+                Ok(user_data.into_iter().next().unwrap())
             }
             None => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
@@ -298,11 +298,11 @@ async fn update_credentials(
 async fn get_task_log(
     extract::Json(payload): extract::Json<GetTaskLogPayload>,
 ) -> Json<serde_json::Value> {
-    perform_get_user_task_log(payload).unwrap();
+    let task_log = perform_get_user_task_log(payload).unwrap();
     Json(serde_json::json!({
         "status": "ok",
         "data": {
-            "task_log": "",
+            "task_log": task_log,
         }
     }))
 }
