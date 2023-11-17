@@ -14,3 +14,5 @@ shuttle-runtime = "0.25.0"
 strum = "0.25"
 strum_macros = "0.25"
 tokio = "1.28.2"
+tower-http = { version = "0.4.4", features = ["trace"] }
+tracing = "0.1.40"

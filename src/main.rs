@@ -1,10 +1,19 @@
-use std::iter::successors;
+use std::{iter::successors, time::Duration};
 
-use axum::{extract, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+use axum::{
+    body::Body,
+    extract,
+    http::{Request, StatusCode},
+    response::{IntoResponse, Response},
+    routing::post,
+    Json, Router,
+};
 use chrono::NaiveDateTime;
 use redis::{Commands, FromRedisValue, JsonCommands};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
+use tracing::{info, Span};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 enum TaskState {
@@ -224,8 +233,6 @@ fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<UserData, red
         Ok(data_str) => match data_str {
             Some(data_str) => {
                 let user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
-                println!("user_data: {:?}", user_data);
-                println!("appending");
 
                 Ok(user_data.into_iter().next().unwrap())
             }
@@ -313,7 +320,21 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
         .route("/v1/store", post(store_task))
         .route("/v1/reset", post(reset_task))
         .route("/v1/credentials", post(update_credentials))
-        .route("/v1/task-log", post(get_task_log));
+        .route("/v1/task-log", post(get_task_log))
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(|request: &Request<Body>, _span: &Span| {
+                    info!("{:?} {:?}", request.method(), request.uri());
+                })
+                .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
+                    // ...
+                })
+                .on_failure(
+                    |_error: ServerErrorsFailureClass, _latency: Duration, _span: &Span| {
+                        // ...
+                    },
+                ),
+        );
 
     Ok(router.into())
 }
