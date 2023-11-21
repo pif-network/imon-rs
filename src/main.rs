@@ -304,14 +304,19 @@ async fn update_credentials(
 
 async fn get_task_log(
     extract::Json(payload): extract::Json<GetTaskLogPayload>,
-) -> Json<serde_json::Value> {
-    let task_log = perform_get_user_task_log(payload).unwrap();
-    Json(serde_json::json!({
-        "status": "ok",
-        "data": {
-            "task_log": task_log,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    match perform_get_user_task_log(payload) {
+        Ok(task_log) => Ok(Json(serde_json::json!({
+            "status": "ok",
+            "data": {
+                "task_log": task_log,
+            }
+        }))),
+        Err(err) => {
+            let error_response = construct_error_response(err);
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
-    }))
+    }
 }
 
 #[shuttle_runtime::main]
