@@ -296,26 +296,34 @@ async fn store_task(
 
 async fn reset_task(
     extract::Json(payload): extract::Json<ResetUserDataPayload>,
-) -> Json<serde_json::Value> {
-    let user_data = perform_reset_task(payload).unwrap();
-
-    Json(serde_json::json!({
-        "status": "ok",
-        "data": user_data,
-    }))
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    match perform_reset_task(payload) {
+        Ok(user_data) => Ok(Json(serde_json::json!({
+            "status": "ok",
+            "data": user_data,
+        }))),
+        Err(err) => {
+            let error_response = construct_error_response(err);
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
+        }
+    }
 }
 
 async fn update_credentials(
     extract::Json(payload): extract::Json<UpdateCredentialsPayload>,
-) -> Json<serde_json::Value> {
-    println!("payload: {:?}", payload);
-    let user_key = perform_update_credentials(payload).unwrap();
-    Json(serde_json::json!({
-        "status": "ok",
-        "data": {
-            "user_key": user_key,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    match perform_update_credentials(payload) {
+        Ok(user_key) => Ok(Json(serde_json::json!({
+            "status": "ok",
+            "data": {
+                "user_key": user_key,
+            }
+        }))),
+        Err(err) => {
+            let error_response = construct_error_response(err);
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
-    }))
+    }
 }
 
 async fn get_task_log(
