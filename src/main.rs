@@ -25,13 +25,19 @@ enum TaskState {
 }
 
 #[derive(Debug, Display)]
-enum RedisKey {
+enum UserDataRedisJsonPath {
     #[strum(serialize = "$")]
     Root,
     #[strum(serialize = "$.task_history")]
     TaskHistory,
     #[strum(serialize = "$.current_task")]
     CurrentTask,
+}
+
+#[derive(Debug, Display)]
+enum OperatingRedisKey {
+    #[strum(serialize = "current_id")]
+    CurrentId,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -113,7 +119,7 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
     let mut con = client.get_connection()?;
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.user_name,
-        RedisKey::Root.to_string().as_str(),
+        UserDataRedisJsonPath::Root.to_string().as_str(),
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
@@ -125,21 +131,21 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
                 user_data[0].task_history.pop();
                 con.json_set(
                     &payload.user_name,
-                    RedisKey::TaskHistory.to_string().as_str(),
+                    UserDataRedisJsonPath::TaskHistory.to_string().as_str(),
                     &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
                 )?;
 
                 println!("appending");
                 con.json_arr_append(
                     &payload.user_name,
-                    RedisKey::TaskHistory.to_string().as_str(),
+                    UserDataRedisJsonPath::TaskHistory.to_string().as_str(),
                     &serde_json::json!(&payload.task),
                 )?;
 
                 println!("setting current task");
                 con.json_set(
                     &payload.user_name,
-                    RedisKey::CurrentTask.to_string().as_str(),
+                    UserDataRedisJsonPath::CurrentTask.to_string().as_str(),
                     &serde_json::json!(&payload.task),
                 )?;
 
@@ -174,7 +180,7 @@ fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::
     };
     con.json_set(
         &payload.key,
-        RedisKey::Root.to_string().as_str(),
+        UserDataRedisJsonPath::Root.to_string().as_str(),
         &serde_json::json!(user_data),
     )?;
 
@@ -198,7 +204,7 @@ fn perform_update_credentials(
 
     let new_id;
 
-    match con.get::<&str, i32>("current_id") {
+    match con.get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str()) {
         Ok(current_id) => {
             new_id = current_id + 1;
             con.set("current_id", new_id)?;
@@ -220,7 +226,7 @@ fn perform_update_credentials(
     };
     con.json_set(
         &user_key,
-        RedisKey::Root.to_string().as_str(),
+        UserDataRedisJsonPath::Root.to_string().as_str(),
         &serde_json::json!(user_data),
     )?;
 
@@ -238,7 +244,7 @@ fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<UserData, red
 
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.key,
-        RedisKey::Root.to_string().as_str(),
+        UserDataRedisJsonPath::Root.to_string().as_str(),
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
