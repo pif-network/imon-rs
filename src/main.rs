@@ -117,8 +117,18 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
+                let mut user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
                 println!("user_data: {:?}", user_data);
+
+                // Remove the latest task from the history
+                // to append the updated version later.
+                user_data[0].task_history.pop();
+                con.json_set(
+                    &payload.user_name,
+                    RedisKey::TaskHistory.to_string().as_str(),
+                    &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
+                )?;
+
                 println!("appending");
                 con.json_arr_append(
                     &payload.user_name,
