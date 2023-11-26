@@ -170,21 +170,38 @@ fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
     )?;
     let mut con = client.get_connection()?;
-
-    let user_data = UserData {
-        id: payload.key.split(":").collect::<Vec<&str>>()[1]
-            .parse::<i32>()
-            .unwrap(),
-        task_history: vec![],
-        current_task: Task::placeholder("reset", TaskState::Idle),
-    };
-    con.json_set(
+    match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.key,
         UserDataRedisJsonPath::Root.to_string().as_str(),
-        &serde_json::json!(user_data),
-    )?;
+    ) {
+        Ok(data_str) => match data_str {
+            Some(_data_str) => {
+                let user_data = UserData {
+                    id: payload.key.split(":").collect::<Vec<&str>>()[1]
+                        .parse::<i32>()
+                        .unwrap(),
+                    task_history: vec![],
+                    current_task: Task::placeholder("reset", TaskState::Idle),
+                };
+                con.json_set(
+                    &payload.key,
+                    UserDataRedisJsonPath::Root.to_string().as_str(),
+                    &serde_json::json!(user_data),
+                )?;
 
-    Ok(user_data)
+                Ok(user_data)
+            }
+            None => Err(redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                // Redis gives nil -> no key -> no user.
+                "User not found.",
+            ))),
+        },
+        Err(err) => {
+            println!("err: {:?}", err);
+            return Err(err);
+        }
+    }
 }
 
 fn generate_key(user_name: &str, id: i32) -> String {
