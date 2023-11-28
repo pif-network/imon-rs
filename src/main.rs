@@ -2,7 +2,7 @@ use std::{iter::successors, time::Duration};
 
 use axum::{
     body::Body,
-    extract,
+    extract::{self, rejection::JsonRejection},
     http::{Request, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
@@ -265,7 +265,8 @@ fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<UserData, red
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
+                let user_data: Vec<UserData> =
+                    serde_json::from_str(&data_str).expect("Parsing `user_data` should not fail.");
 
                 Ok(user_data.into_iter().next().unwrap())
             }
@@ -282,7 +283,7 @@ fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<UserData, red
     }
 }
 
-fn construct_error_response(err: redis::RedisError) -> serde_json::Value {
+fn construct_redis_error_response(err: redis::RedisError) -> serde_json::Value {
     match err.kind() {
         redis::ErrorKind::ResponseError => serde_json::json!({
             "status": "error",
@@ -297,6 +298,12 @@ fn construct_error_response(err: redis::RedisError) -> serde_json::Value {
     }
 }
 
+fn construct_json_error_response(err: JsonRejection) -> serde_json::Value {
+    serde_json::json!({
+        "status": "error",
+        "message": err.to_string(),
+    })
+}
 async fn store_task(
     extract::Json(payload): extract::Json<StoreTaskPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
@@ -305,24 +312,42 @@ async fn store_task(
             "status": "ok",
         }))),
         Err(err) => {
-            let error_response = construct_error_response(err);
+            let error_response = construct_redis_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
 }
 
 async fn reset_task(
-    extract::Json(payload): extract::Json<ResetUserDataPayload>,
+    payload: Result<extract::Json<ResetUserDataPayload>, JsonRejection>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_reset_task(payload) {
-        Ok(user_data) => Ok(Json(serde_json::json!({
-            "status": "ok",
-            "data": user_data,
-        }))),
-        Err(err) => {
-            let error_response = construct_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
+    match payload {
+        Ok(extract::Json(payload)) => {
+            let user_data = perform_reset_task(payload).unwrap();
+            Ok(Json(serde_json::json!({
+                "status": "ok",
+                "data": user_data,
+            })))
         }
+        Err(err) => match err {
+            JsonRejection::JsonSyntaxError(err) => {
+                let error_response =
+                    construct_json_error_response(JsonRejection::JsonSyntaxError(err));
+                Err((StatusCode::BAD_REQUEST, Json(error_response)))
+            }
+            JsonRejection::JsonDataError(err) => {
+                let error_response =
+                    construct_json_error_response(JsonRejection::JsonDataError(err));
+                Err((StatusCode::BAD_REQUEST, Json(error_response)))
+            }
+            _ => {
+                let error_response = serde_json::json!({
+                    "status": "error",
+                    "message": err.to_string(),
+                });
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+            }
+        },
     }
 }
 
@@ -337,7 +362,7 @@ async fn update_credentials(
             }
         }))),
         Err(err) => {
-            let error_response = construct_error_response(err);
+            let error_response = construct_redis_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
@@ -354,7 +379,7 @@ async fn get_task_log(
             }
         }))),
         Err(err) => {
-            let error_response = construct_error_response(err);
+            let error_response = construct_redis_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
