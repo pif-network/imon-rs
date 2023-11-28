@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.6.18", features = ["macros"] }
+axum = { version = "0.7.0", features = ["macros"] }
 chrono = "0.4.30"
 redis = { version = "0.23.3", features = ["tls-native-tls", "json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.105"
-shuttle-axum = "0.25.0"
-shuttle-runtime = "0.25.0"
+shuttle-axum = "0.34.0"
+shuttle-runtime = "0.34.0"
 strum = "0.25"
 strum_macros = "0.25"
 tokio = "1.28.2"
-tower-http = { version = "0.4.4", features = ["trace"] }
+tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = "0.1.40"
