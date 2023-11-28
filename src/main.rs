@@ -11,6 +11,8 @@ use axum::{
 use chrono::NaiveDateTime;
 use redis::{Commands, FromRedisValue, JsonCommands};
 use serde::{Deserialize, Serialize};
+use shuttle_runtime::{CustomError, Error};
+use std::net::SocketAddr;
 use strum_macros::Display;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{info, Span};
@@ -385,8 +387,31 @@ async fn get_task_log(
     }
 }
 
+pub struct AxumService(pub axum::Router);
+
+#[shuttle_runtime::async_trait]
+impl shuttle_runtime::Service for AxumService {
+    async fn bind(mut self, addr: SocketAddr) -> Result<(), Error> {
+        let tcp_listener = tokio::net::TcpListener::bind(&addr).await?;
+        axum::serve(tcp_listener, self.0.into_make_service())
+            .await
+            .map_err(CustomError::new)?;
+
+        Ok(())
+    }
+}
+
+impl From<axum::Router> for AxumService {
+    fn from(router: axum::Router) -> Self {
+        Self(router)
+    }
+}
+
+type PShuttleAxum = Result<AxumService, Error>;
+
 #[shuttle_runtime::main]
-async fn axum() -> shuttle_axum::ShuttleAxum {
+// async fn axum() -> shuttle_axum::ShuttleAxum {
+async fn axum() -> PShuttleAxum {
     let router = Router::new()
         .route("/v1/store", post(store_task))
         .route("/v1/reset", post(reset_task))
