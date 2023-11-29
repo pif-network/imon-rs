@@ -1,8 +1,9 @@
 use std::{iter::successors, time::Duration};
 
 use axum::{
+    async_trait,
     body::Body,
-    extract::{self, rejection::JsonRejection},
+    extract::{rejection::JsonRejection, FromRequest, Request as AxumExtractRequest},
     http::{Request, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
@@ -300,14 +301,37 @@ fn construct_redis_error_response(err: redis::RedisError) -> serde_json::Value {
     }
 }
 
-fn construct_json_error_response(err: JsonRejection) -> serde_json::Value {
+fn construct_json_error_response(err: &JsonRejection) -> serde_json::Value {
     serde_json::json!({
         "status": "error",
         "message": err.to_string(),
     })
 }
+
+#[derive(Debug)]
+pub struct ValidatedJson<T>(pub T);
+
+#[async_trait]
+impl<S, T> FromRequest<S> for ValidatedJson<T>
+where
+    axum::Json<T>: FromRequest<S, Rejection = JsonRejection>,
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, axum::Json<serde_json::Value>);
+
+    async fn from_request(req: AxumExtractRequest, state: &S) -> Result<Self, Self::Rejection> {
+        match axum::Json::<T>::from_request(req, state).await {
+            Ok(json) => Ok(Self(json.0)),
+            Err(rejection) => {
+                let payload = construct_json_error_response(&rejection);
+                Err((rejection.status(), axum::Json(payload)))
+            }
+        }
+    }
+}
+
 async fn store_task(
-    extract::Json(payload): extract::Json<StoreTaskPayload>,
+    ValidatedJson(payload): ValidatedJson<StoreTaskPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     match perform_store_task(payload) {
         Ok(_) => Ok(Json(serde_json::json!({
@@ -321,40 +345,24 @@ async fn store_task(
 }
 
 async fn reset_task(
-    payload: Result<extract::Json<ResetUserDataPayload>, JsonRejection>,
+    ValidatedJson(payload): ValidatedJson<ResetUserDataPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match payload {
-        Ok(extract::Json(payload)) => {
-            let user_data = perform_reset_task(payload).unwrap();
-            Ok(Json(serde_json::json!({
-                "status": "ok",
-                "data": user_data,
-            })))
+    match perform_reset_task(payload) {
+        Ok(user_data) => Ok(Json(serde_json::json!({
+            "status": "ok",
+            "data": {
+                "user_data": user_data,
+            }
+        }))),
+        Err(err) => {
+            let error_response = construct_redis_error_response(err);
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
-        Err(err) => match err {
-            JsonRejection::JsonSyntaxError(err) => {
-                let error_response =
-                    construct_json_error_response(JsonRejection::JsonSyntaxError(err));
-                Err((StatusCode::BAD_REQUEST, Json(error_response)))
-            }
-            JsonRejection::JsonDataError(err) => {
-                let error_response =
-                    construct_json_error_response(JsonRejection::JsonDataError(err));
-                Err((StatusCode::BAD_REQUEST, Json(error_response)))
-            }
-            _ => {
-                let error_response = serde_json::json!({
-                    "status": "error",
-                    "message": err.to_string(),
-                });
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
-            }
-        },
     }
 }
 
 async fn update_credentials(
-    extract::Json(payload): extract::Json<UpdateCredentialsPayload>,
+    ValidatedJson(payload): ValidatedJson<UpdateCredentialsPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     match perform_update_credentials(payload) {
         Ok(user_key) => Ok(Json(serde_json::json!({
@@ -371,7 +379,7 @@ async fn update_credentials(
 }
 
 async fn get_task_log(
-    extract::Json(payload): extract::Json<GetTaskLogPayload>,
+    ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     match perform_get_user_task_log(payload) {
         Ok(task_log) => Ok(Json(serde_json::json!({
