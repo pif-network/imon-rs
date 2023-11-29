@@ -16,7 +16,7 @@ use shuttle_runtime::{CustomError, Error};
 use std::net::SocketAddr;
 use strum_macros::Display;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
-use tracing::{info, Span};
+use tracing::{error, info, Span};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 enum TaskState {
@@ -324,6 +324,7 @@ where
             Ok(json) => Ok(Self(json.0)),
             Err(rejection) => {
                 let payload = construct_json_error_response(&rejection);
+                error!("rejection: {:?}", rejection);
                 Err((rejection.status(), axum::Json(payload)))
             }
         }
@@ -430,8 +431,12 @@ async fn axum() -> PShuttleAxum {
                 .on_request(|request: &Request<Body>, _span: &Span| {
                     info!("{:?} {:?}", request.method(), request.uri());
                 })
-                .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
-                    // ...
+                .on_response(|response: &Response, _latency: Duration, _span: &Span| {
+                    if response.status().is_success() {
+                        info!("{:?}", response.status());
+                    } else {
+                        error!("{:?}", response.status());
+                    }
                 })
                 .on_failure(
                     |_error: ServerErrorsFailureClass, _latency: Duration, _span: &Span| {
