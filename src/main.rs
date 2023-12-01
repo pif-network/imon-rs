@@ -3,7 +3,7 @@ use std::{iter::successors, time::Duration};
 use axum::{
     async_trait,
     body::Body,
-    extract::{rejection::JsonRejection, FromRequest, Request as AxumExtractRequest},
+    extract::{rejection::JsonRejection, FromRequest, Request as AxumExtractRequest, State},
     http::{Request, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
@@ -114,12 +114,11 @@ impl FromRedisValue for UserData {
     }
 }
 
-fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError> {
-    let client = redis::Client::open(
-        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
-        // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
-    )?;
-    let mut con = client.get_connection()?;
+fn perform_store_task(
+    payload: StoreTaskPayload,
+    redis_client: redis::Client,
+) -> Result<(), redis::RedisError> {
+    let mut con = redis_client.get_connection()?;
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.user_name,
         UserDataRedisJsonPath::Root.to_string().as_str(),
@@ -167,12 +166,11 @@ fn perform_store_task(payload: StoreTaskPayload) -> Result<(), redis::RedisError
     }
 }
 
-fn perform_reset_task(payload: ResetUserDataPayload) -> Result<UserData, redis::RedisError> {
-    let client = redis::Client::open(
-        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
-        // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
-    )?;
-    let mut con = client.get_connection()?;
+fn perform_reset_task(
+    payload: ResetUserDataPayload,
+    redis_client: redis::Client,
+) -> Result<UserData, redis::RedisError> {
+    let mut con = redis_client.get_connection()?;
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.key,
         UserDataRedisJsonPath::Root.to_string().as_str(),
@@ -213,12 +211,11 @@ fn generate_key(user_name: &str, id: i32) -> String {
     format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
 }
 
-fn perform_register_record(payload: RegisterRecordPayload) -> Result<String, redis::RedisError> {
-    let client = redis::Client::open(
-        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
-        // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
-    )?;
-    let mut con = client.get_connection()?;
+fn perform_register_record(
+    payload: RegisterRecordPayload,
+    redis_client: redis::Client,
+) -> Result<String, redis::RedisError> {
+    let mut con = redis_client.get_connection()?;
 
     let new_id;
 
@@ -253,12 +250,11 @@ fn perform_register_record(payload: RegisterRecordPayload) -> Result<String, red
     Ok(user_key)
 }
 
-fn perform_get_user_task_log(payload: GetTaskLogPayload) -> Result<UserData, redis::RedisError> {
-    let client = redis::Client::open(
-        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
-        // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
-    )?;
-    let mut con = client.get_connection()?;
+fn perform_get_user_task_log(
+    payload: GetTaskLogPayload,
+    redis_client: redis::Client,
+) -> Result<UserData, redis::RedisError> {
+    let mut con = redis_client.get_connection()?;
 
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.key,
@@ -330,9 +326,10 @@ where
 }
 
 async fn store_task(
+    State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<StoreTaskPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_store_task(payload) {
+    match perform_store_task(payload, app_state.redis_client) {
         Ok(_) => Ok(Json(serde_json::json!({
             "status": "ok",
         }))),
@@ -344,9 +341,10 @@ async fn store_task(
 }
 
 async fn reset_task(
+    State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<ResetUserDataPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_reset_task(payload) {
+    match perform_reset_task(payload, app_state.redis_client) {
         Ok(user_data) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -361,9 +359,10 @@ async fn reset_task(
 }
 
 async fn register_record(
+    State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_register_record(payload) {
+    match perform_register_record(payload, app_state.redis_client) {
         Ok(user_key) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -378,9 +377,10 @@ async fn register_record(
 }
 
 async fn get_task_log(
+    State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_get_user_task_log(payload) {
+    match perform_get_user_task_log(payload, app_state.redis_client) {
         Ok(task_log) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -416,9 +416,22 @@ impl From<axum::Router> for AxumService {
 
 type PShuttleAxum = Result<AxumService, Error>;
 
+#[derive(Clone)]
+struct AppState {
+    redis_client: redis::Client,
+}
+
 #[shuttle_runtime::main]
 // async fn axum() -> shuttle_axum::ShuttleAxum {
 async fn axum() -> PShuttleAxum {
+    let client = redis::Client::open(
+        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
+    ).expect("Redis client should be created successfully."); // FIXME: Handle the error
+
+    let app_state = AppState {
+        redis_client: client,
+    };
+
     let router = Router::new()
         .route("/v1/store", post(store_task))
         .route("/v1/reset", post(reset_task))
@@ -441,7 +454,8 @@ async fn axum() -> PShuttleAxum {
                         // ...
                     },
                 ),
-        );
+        )
+        .with_state(app_state);
 
     Ok(router.into())
 }
