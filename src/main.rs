@@ -88,7 +88,7 @@ struct StoreTaskPayload {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct UpdateCredentialsPayload {
+struct RegisterRecordPayload {
     user_name: String,
 }
 
@@ -213,9 +213,7 @@ fn generate_key(user_name: &str, id: i32) -> String {
     format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
 }
 
-fn perform_update_credentials(
-    payload: UpdateCredentialsPayload,
-) -> Result<String, redis::RedisError> {
+fn perform_register_record(payload: RegisterRecordPayload) -> Result<String, redis::RedisError> {
     let client = redis::Client::open(
         "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
         // "redis://default:ErYxrixFKO55MaU9O5xDmPs1SLsz78Ji@redis-15313.c54.ap-northeast-1-2.ec2.cloud.redislabs.com:15313",
@@ -362,10 +360,10 @@ async fn reset_task(
     }
 }
 
-async fn update_credentials(
-    ValidatedJson(payload): ValidatedJson<UpdateCredentialsPayload>,
+async fn register_record(
+    ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_update_credentials(payload) {
+    match perform_register_record(payload) {
         Ok(user_key) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -424,7 +422,7 @@ async fn axum() -> PShuttleAxum {
     let router = Router::new()
         .route("/v1/store", post(store_task))
         .route("/v1/reset", post(reset_task))
-        .route("/v1/credentials", post(update_credentials))
+        .route("/v1/record/new", post(register_record))
         .route("/v1/task-log", post(get_task_log))
         .layer(
             TraceLayer::new_for_http()
