@@ -6,7 +6,7 @@ use axum::{
     extract::{rejection::JsonRejection, FromRequest, Request as AxumExtractRequest, State},
     http::{Request, StatusCode},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use chrono::NaiveDateTime;
@@ -28,7 +28,7 @@ enum TaskState {
 }
 
 #[derive(Debug, Display)]
-enum UserDataRedisJsonPath {
+enum UserRecordRedisJsonPath {
     #[strum(serialize = "$")]
     Root,
     #[strum(serialize = "$.task_history")]
@@ -75,8 +75,9 @@ impl Task {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct UserData {
+struct UserRecord {
     id: i32,
+    user_name: String,
     task_history: Vec<Task>,
     current_task: Task,
 }
@@ -102,11 +103,11 @@ struct GetTaskLogPayload {
     key: String,
 }
 
-impl FromRedisValue for UserData {
-    fn from_redis_value(v: &redis::Value) -> redis::RedisResult<UserData> {
+impl FromRedisValue for UserRecord {
+    fn from_redis_value(v: &redis::Value) -> redis::RedisResult<UserRecord> {
         match *v {
             redis::Value::Data(ref bytes) => {
-                let user_data: UserData = serde_json::from_slice(bytes)?;
+                let user_data: UserRecord = serde_json::from_slice(bytes)?;
                 Ok(user_data)
             }
             _ => Err((redis::ErrorKind::TypeError, "Invalid type").into()),
@@ -121,11 +122,11 @@ fn perform_store_task(
     let mut con = redis_client.get_connection()?;
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.user_name,
-        UserDataRedisJsonPath::Root.to_string().as_str(),
+        UserRecordRedisJsonPath::Root.to_string().as_str(),
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let mut user_data: Vec<UserData> = serde_json::from_str(&data_str).unwrap();
+                let mut user_data: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
                 println!("user_data: {:?}", user_data);
 
                 // Remove the latest task from the history
@@ -133,21 +134,21 @@ fn perform_store_task(
                 user_data[0].task_history.pop();
                 con.json_set(
                     &payload.user_name,
-                    UserDataRedisJsonPath::TaskHistory.to_string().as_str(),
+                    UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
                     &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
                 )?;
 
                 println!("appending");
                 con.json_arr_append(
                     &payload.user_name,
-                    UserDataRedisJsonPath::TaskHistory.to_string().as_str(),
+                    UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
                     &serde_json::json!(&payload.task),
                 )?;
 
                 println!("setting current task");
                 con.json_set(
                     &payload.user_name,
-                    UserDataRedisJsonPath::CurrentTask.to_string().as_str(),
+                    UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
                     &serde_json::json!(&payload.task),
                 )?;
 
@@ -169,24 +170,25 @@ fn perform_store_task(
 fn perform_reset_task(
     payload: ResetUserDataPayload,
     redis_client: redis::Client,
-) -> Result<UserData, redis::RedisError> {
+) -> Result<UserRecord, redis::RedisError> {
     let mut con = redis_client.get_connection()?;
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.key,
-        UserDataRedisJsonPath::Root.to_string().as_str(),
+        UserRecordRedisJsonPath::Root.to_string().as_str(),
     ) {
         Ok(data_str) => match data_str {
             Some(_data_str) => {
-                let user_data = UserData {
+                let user_data = UserRecord {
                     id: payload.key.split(":").collect::<Vec<&str>>()[1]
                         .parse::<i32>()
                         .unwrap(),
+                    user_name: payload.key.split(":").collect::<Vec<&str>>()[0].to_string(),
                     task_history: vec![],
                     current_task: Task::placeholder("reset", TaskState::Idle),
                 };
                 con.json_set(
                     &payload.key,
-                    UserDataRedisJsonPath::Root.to_string().as_str(),
+                    UserRecordRedisJsonPath::Root.to_string().as_str(),
                     &serde_json::json!(user_data),
                 )?;
 
@@ -234,14 +236,15 @@ fn perform_register_record(
 
     let user_key = generate_key(&payload.user_name, new_id);
 
-    let user_data = UserData {
+    let user_data = UserRecord {
         id: new_id,
+        user_name: payload.user_name,
         task_history: vec![],
         current_task: Task::placeholder("initialised", TaskState::Idle),
     };
     con.json_set(
         &user_key,
-        UserDataRedisJsonPath::Root.to_string().as_str(),
+        UserRecordRedisJsonPath::Root.to_string().as_str(),
         &serde_json::json!(user_data),
     )?;
 
@@ -253,16 +256,16 @@ fn perform_register_record(
 fn perform_get_user_task_log(
     payload: GetTaskLogPayload,
     redis_client: redis::Client,
-) -> Result<UserData, redis::RedisError> {
+) -> Result<UserRecord, redis::RedisError> {
     let mut con = redis_client.get_connection()?;
 
     match con.json_get::<&std::string::String, &str, Option<String>>(
         &payload.key,
-        UserDataRedisJsonPath::Root.to_string().as_str(),
+        UserRecordRedisJsonPath::Root.to_string().as_str(),
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let user_data: Vec<UserData> =
+                let user_data: Vec<UserRecord> =
                     serde_json::from_str(&data_str).expect("Parsing `user_data` should not fail.");
 
                 Ok(user_data.into_iter().next().unwrap())
@@ -273,6 +276,48 @@ fn perform_get_user_task_log(
                 "User not found.",
             ))),
         },
+        Err(err) => {
+            println!("err: {:?}", err);
+            return Err(err);
+        }
+    }
+}
+
+fn perform_get_all_records(
+    redis_client: redis::Client,
+) -> Result<Vec<UserRecord>, redis::RedisError> {
+    let mut con = redis_client.get_connection()?;
+
+    // FIXME: Multiple borrows of `con` are not allowed.
+    match redis_client.get_connection()?.scan_match("*:????") {
+        Ok(keys) => {
+            let mut user_records: Vec<UserRecord> = vec![];
+
+            for key in keys {
+                match con.json_get::<&std::string::String, &str, Option<String>>(
+                    &key,
+                    UserRecordRedisJsonPath::Root.to_string().as_str(),
+                ) {
+                    Ok(data_str) => match data_str {
+                        Some(data_str) => {
+                            let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)
+                                .expect("Parsing `user_data` should not fail.");
+                            println!("user_data: {:?}", user_data);
+                            user_records.push(user_data.into_iter().next().unwrap());
+                        }
+                        None => {
+                            println!("User not found.");
+                        }
+                    },
+                    Err(err) => {
+                        println!("err: {:?}", err);
+                        return Err(err);
+                    }
+                }
+            }
+
+            Ok(user_records)
+        }
         Err(err) => {
             println!("err: {:?}", err);
             return Err(err);
@@ -376,6 +421,24 @@ async fn register_record(
     }
 }
 
+async fn get_all_records(
+    State(app_state): State<AppState>,
+    // ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    match perform_get_all_records(app_state.redis_client) {
+        Ok(user_records) => Ok(Json(serde_json::json!({
+            "status": "ok",
+            "data": {
+                "user_records": user_records,
+            }
+        }))),
+        Err(err) => {
+            let error_response = construct_redis_error_response(err);
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
+        }
+    }
+}
+
 async fn get_task_log(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
@@ -436,6 +499,7 @@ async fn axum() -> PShuttleAxum {
         .route("/v1/store", post(store_task))
         .route("/v1/reset", post(reset_task))
         .route("/v1/record/new", post(register_record))
+        .route("/v1/record/all", get(get_all_records))
         .route("/v1/task-log", post(get_task_log))
         .layer(
             TraceLayer::new_for_http()
