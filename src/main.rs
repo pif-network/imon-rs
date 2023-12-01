@@ -131,7 +131,13 @@ fn perform_store_task(
 
                 // Remove the latest task from the history
                 // to append the updated version later.
-                user_data[0].task_history.pop();
+                if user_data[0].current_task.state == TaskState::Begin
+                    || user_data[0].current_task.state == TaskState::Break
+                    || user_data[0].current_task.state == TaskState::Back
+                {
+                    user_data[0].task_history.pop();
+                };
+
                 con.json_set(
                     &payload.user_name,
                     UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
