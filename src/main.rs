@@ -271,10 +271,15 @@ fn perform_get_user_task_log(
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let user_data: Vec<UserRecord> =
+                let user_data_vec: Vec<UserRecord> =
                     serde_json::from_str(&data_str).expect("Parsing `user_data` should not fail.");
 
-                Ok(user_data.into_iter().next().unwrap())
+                let mut user_data = user_data_vec.into_iter().next().unwrap();
+                user_data
+                    .task_history
+                    .sort_by(|a, b| b.begin_time.cmp(&a.begin_time));
+
+                Ok(user_data)
             }
             None => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
