@@ -72,6 +72,66 @@ impl Task {
             ..Task::default()
         }
     }
+
+    fn generate_begin_task(name: String) -> Self {
+        Task {
+            name,
+            state: TaskState::Begin,
+            ..Task::default()
+        }
+    }
+
+    fn generate_break_task(latest_task: &Task) -> Self {
+        let duration = Task::calculate_duration(&latest_task);
+        Task {
+            name: latest_task.name.clone(),
+            state: TaskState::Break,
+            duration,
+            end_time: chrono::offset::Local::now().naive_local(),
+            ..*latest_task
+        }
+    }
+
+    fn generate_back_task(latest_task: &Task) -> Self {
+        Task {
+            name: latest_task.name.clone(),
+            state: TaskState::Back,
+            begin_time: Task::default().begin_time,
+            ..*latest_task
+        }
+    }
+
+    fn generate_done_task(latest_task: &Task) -> Self {
+        if latest_task.state == TaskState::Break {
+            Task {
+                name: latest_task.name.clone(),
+                state: TaskState::End,
+                ..*latest_task
+            }
+        } else if latest_task.state == TaskState::Back {
+            let duration = Task::calculate_duration(&latest_task) + latest_task.duration;
+            Task {
+                name: latest_task.name.clone(),
+                state: TaskState::End,
+                duration,
+                begin_time: latest_task.begin_time,
+                ..Task::default()
+            }
+        } else {
+            let duration = Task::calculate_duration(&latest_task);
+            Task {
+                name: latest_task.name.clone(),
+                state: TaskState::End,
+                duration,
+                ..Task::default()
+            }
+        }
+    }
+
+    fn calculate_duration(&self) -> i64 {
+        let duration = chrono::offset::Local::now().naive_local() - self.begin_time;
+        duration.num_seconds()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -485,13 +545,32 @@ fn perform_update_task(
     ) {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let mut user_data_vec: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
-                // println!("user_data: {:?}", user_data);
+                let user_record_vec: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
 
-                let user_data = user_data_vec.into_iter().next().unwrap();
-                // if user_data.current_task.state !=TaskState.End&& payload.state==TaskState.End{ }
+                let user_record = user_record_vec.into_iter().next().unwrap();
+                if user_record.current_task.state != TaskState::End
+                    && payload.state == TaskState::End
+                {
+                    let new_end_task = Task::generate_done_task(&user_record.current_task);
+                    println!("new_end_task: {:?}", new_end_task);
+                    con.json_set(
+                        &payload.key,
+                        UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
+                        &serde_json::json!(&new_end_task),
+                    )?;
+                    println!("appended -> current task");
+                    con.json_arr_append(
+                        &payload.key,
+                        UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
+                        &serde_json::json!(&new_end_task),
+                    )?;
+                    println!("appended -> task history");
 
-                Ok(())
+                    Ok(())
+                } else {
+                    // TODO: Handle the rest of the cases.
+                    Ok(())
+                }
             }
             None => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
@@ -510,7 +589,15 @@ async fn update_task_log(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<UpdateTaskPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    todo!()
+    match perform_update_task(payload, app_state.redis_client) {
+        Ok(_) => Ok(Json(serde_json::json!({
+            "status": "ok",
+        }))),
+        Err(err) => {
+            let error_response = construct_redis_error_response(err);
+            Err((StatusCode::BAD_REQUEST, Json(error_response)))
+        }
+    }
 }
 
 pub struct AxumService(pub axum::Router);
