@@ -1,4 +1,4 @@
-use std::{iter::successors, time::Duration};
+use std::{iter::successors, thread::panicking, time::Duration};
 
 use axum::{
     async_trait,
@@ -101,6 +101,12 @@ struct ResetUserDataPayload {
 #[derive(Serialize, Deserialize, Debug)]
 struct GetTaskLogPayload {
     key: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct UpdateTaskPayload {
+    key: String,
+    state: TaskState,
 }
 
 impl FromRedisValue for UserRecord {
@@ -468,6 +474,45 @@ async fn get_task_log(
     }
 }
 
+fn perform_update_task(
+    payload: UpdateTaskPayload,
+    redis_client: redis::Client,
+) -> Result<(), redis::RedisError> {
+    let mut con = redis_client.get_connection()?;
+    match con.json_get::<&std::string::String, &str, Option<String>>(
+        &payload.key,
+        UserRecordRedisJsonPath::Root.to_string().as_str(),
+    ) {
+        Ok(data_str) => match data_str {
+            Some(data_str) => {
+                let mut user_data_vec: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
+                // println!("user_data: {:?}", user_data);
+
+                let user_data = user_data_vec.into_iter().next().unwrap();
+                // if user_data.current_task.state !=TaskState.End&& payload.state==TaskState.End{ }
+
+                Ok(())
+            }
+            None => Err(redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                // Redis gives nil -> no key -> no user.
+                "User not found.",
+            ))),
+        },
+        Err(err) => {
+            println!("err: {:?}", err);
+            return Err(err);
+        }
+    }
+}
+
+async fn update_task_log(
+    State(app_state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<UpdateTaskPayload>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    todo!()
+}
+
 pub struct AxumService(pub axum::Router);
 
 #[shuttle_runtime::async_trait]
@@ -512,6 +557,7 @@ async fn axum() -> PShuttleAxum {
         .route("/v1/record/new", post(register_record))
         .route("/v1/record/all", get(get_all_records))
         .route("/v1/task-log", post(get_task_log))
+        .route("/v1/task/update", post(update_task_log))
         .layer(
             TraceLayer::new_for_http()
                 .on_request(|request: &Request<Body>, _span: &Span| {
