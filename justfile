@@ -16,7 +16,7 @@ cli scmd *args:
 service scmd *args:
 	#!/bin/bash
 	if [ {{scmd}} = "dev" ]; then
-		cargo watch -s "cargo shuttle run"
+		cargo watch -s "cargo shuttle run" -i cli/
 	else
 		cargo {{scmd}} -p service {{args}}
 	fi
