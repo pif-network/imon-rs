@@ -1,29 +1,17 @@
 use std::iter::successors;
 
-use axum::{
-    async_trait,
-    extract::{rejection::JsonRejection, FromRequest, Request as AxumExtractRequest, State},
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
 use redis::{Commands, JsonCommands};
-use serde::{Deserialize, Serialize};
 
+use super::{
+    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, StoreTaskPayload,
+    UpdateTaskPayload,
+};
 use libs::{
     record::{Task, TaskState, UserRecord},
     OperatingRedisKey, UserRecordRedisJsonPath,
 };
 
-use crate::AppState;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct StoreTaskPayload {
-    user_name: String,
-    task: Task,
-}
-
-fn perform_store_task(
+pub(super) fn perform_store_task(
     payload: StoreTaskPayload,
     redis_client: redis::Client,
 ) -> Result<(), redis::RedisError> {
@@ -81,17 +69,13 @@ fn perform_store_task(
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RegisterRecordPayload {
-    user_name: String,
-}
 fn generate_key(user_name: &str, id: i32) -> String {
     let id_length = successors(Some(id), |&n| (n >= 10).then(|| n / 10)).count();
     let filler_length = 4 - id_length;
     format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
 }
 
-fn perform_register_record(
+pub(super) fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_client: redis::Client,
 ) -> Result<String, redis::RedisError> {
@@ -131,11 +115,7 @@ fn perform_register_record(
     Ok(user_key)
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ResetUserDataPayload {
-    key: String,
-}
-fn perform_reset_task(
+pub(super) fn perform_reset_task(
     payload: ResetUserDataPayload,
     redis_client: redis::Client,
 ) -> Result<UserRecord, redis::RedisError> {
@@ -175,11 +155,7 @@ fn perform_reset_task(
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GetTaskLogPayload {
-    key: String,
-}
-fn perform_get_user_task_log(
+pub(super) fn perform_get_user_task_log(
     payload: GetTaskLogPayload,
     redis_client: redis::Client,
 ) -> Result<UserRecord, redis::RedisError> {
@@ -214,13 +190,7 @@ fn perform_get_user_task_log(
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateTaskPayload {
-    key: String,
-    state: TaskState,
-}
-
-fn perform_get_all_records(
+pub(super) fn perform_get_all_records(
     redis_client: redis::Client,
 ) -> Result<Vec<UserRecord>, redis::RedisError> {
     let mut con = redis_client.get_connection()?;
@@ -262,139 +232,7 @@ fn perform_get_all_records(
     }
 }
 
-fn construct_redis_error_response(err: redis::RedisError) -> serde_json::Value {
-    match err.kind() {
-        redis::ErrorKind::ResponseError => serde_json::json!({
-            "status": "error",
-            // FIXME: Most of the time, this error means that the user has not
-            // registered yet, but it is still not the best way to handle.
-            "message": "Invalid credentials",
-        }),
-        _ => serde_json::json!({
-            "status": "error",
-            "message": err.to_string(),
-        }),
-    }
-}
-
-fn construct_json_error_response(err: &JsonRejection) -> serde_json::Value {
-    serde_json::json!({
-        "status": "error",
-        "message": err.to_string(),
-    })
-}
-
-#[derive(Debug)]
-pub struct ValidatedJson<T>(pub T);
-
-#[async_trait]
-impl<S, T> FromRequest<S> for ValidatedJson<T>
-where
-    axum::Json<T>: FromRequest<S, Rejection = JsonRejection>,
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, axum::Json<serde_json::Value>);
-
-    async fn from_request(req: AxumExtractRequest, state: &S) -> Result<Self, Self::Rejection> {
-        match axum::Json::<T>::from_request(req, state).await {
-            Ok(json) => Ok(Self(json.0)),
-            Err(rejection) => {
-                let payload = construct_json_error_response(&rejection);
-                tracing::error!("rejection: {:?}", rejection);
-                Err((rejection.status(), axum::Json(payload)))
-            }
-        }
-    }
-}
-
-pub async fn store_task(
-    State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<StoreTaskPayload>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_store_task(payload, app_state.redis_client) {
-        Ok(_) => Ok(Json(serde_json::json!({
-            "status": "ok",
-        }))),
-        Err(err) => {
-            let error_response = construct_redis_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
-        }
-    }
-}
-
-pub async fn reset_task(
-    State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<ResetUserDataPayload>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_reset_task(payload, app_state.redis_client) {
-        Ok(user_data) => Ok(Json(serde_json::json!({
-            "status": "ok",
-            "data": {
-                "user_data": user_data,
-            }
-        }))),
-        Err(err) => {
-            let error_response = construct_redis_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
-        }
-    }
-}
-
-pub async fn register_record(
-    State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_register_record(payload, app_state.redis_client) {
-        Ok(user_key) => Ok(Json(serde_json::json!({
-            "status": "ok",
-            "data": {
-                "user_key": user_key,
-            }
-        }))),
-        Err(err) => {
-            let error_response = construct_redis_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
-        }
-    }
-}
-
-pub async fn get_all_records(
-    State(app_state): State<AppState>,
-    // ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_get_all_records(app_state.redis_client) {
-        Ok(user_records) => Ok(Json(serde_json::json!({
-            "status": "ok",
-            "data": {
-                "user_records": user_records,
-            }
-        }))),
-        Err(err) => {
-            let error_response = construct_redis_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
-        }
-    }
-}
-
-pub async fn get_task_log(
-    State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_get_user_task_log(payload, app_state.redis_client) {
-        Ok(task_log) => Ok(Json(serde_json::json!({
-            "status": "ok",
-            "data": {
-                "task_log": task_log,
-            }
-        }))),
-        Err(err) => {
-            let error_response = construct_redis_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
-        }
-    }
-}
-
-fn perform_update_task(
+pub(super) fn perform_update_task(
     payload: UpdateTaskPayload,
     redis_client: redis::Client,
 ) -> Result<(), redis::RedisError> {
@@ -441,21 +279,6 @@ fn perform_update_task(
         Err(err) => {
             println!("err: {:?}", err);
             return Err(err);
-        }
-    }
-}
-
-pub async fn update_task_log(
-    State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<UpdateTaskPayload>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_update_task(payload, app_state.redis_client) {
-        Ok(_) => Ok(Json(serde_json::json!({
-            "status": "ok",
-        }))),
-        Err(err) => {
-            let error_response = construct_redis_error_response(err);
-            Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
 }
