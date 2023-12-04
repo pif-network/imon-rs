@@ -20,8 +20,8 @@ pub struct Task {
     pub duration: i64,
 }
 
-impl Default for Task {
-    fn default() -> Self {
+impl Task {
+    pub fn default() -> Self {
         Task {
             name: String::new(),
             state: TaskState::Begin,
@@ -30,9 +30,7 @@ impl Default for Task {
             duration: 0,
         }
     }
-}
 
-impl Task {
     pub fn placeholder(name: &str, state: TaskState) -> Self {
         Task {
             name: name.to_string(),
@@ -60,7 +58,7 @@ impl Task {
         }
     }
 
-    fn generate_back_task(latest_task: &Task) -> Self {
+    pub fn generate_back_task(latest_task: &Task) -> Self {
         Task {
             name: latest_task.name.clone(),
             state: TaskState::Back,

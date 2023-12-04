@@ -4,11 +4,11 @@ use std::{
     io::{Read, Write},
 };
 
-use chrono;
-use chrono::NaiveDateTime;
 use clap::{Parser, Subcommand};
 use reqwest;
 use serde::{Deserialize, Serialize};
+
+use libs::record::{Task, TaskState};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -51,105 +51,6 @@ enum Commands {
     Auth {
         user_name: Option<String>,
     },
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-enum TaskState {
-    Begin,
-    Break,
-    Back,
-    End,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Task {
-    name: String,
-    state: TaskState,
-    begin_time: NaiveDateTime,
-    end_time: NaiveDateTime,
-    duration: i64,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct UserData {
-    id: i32,
-    task_history: Vec<Task>,
-    current_task: Task,
-}
-
-impl Default for Task {
-    fn default() -> Self {
-        let now = chrono::offset::Local::now().naive_local();
-        Task {
-            name: String::new(),
-            state: TaskState::End,
-            begin_time: now,
-            end_time: now,
-            duration: 0,
-        }
-    }
-}
-
-impl Task {
-    fn generate_begin_task(name: String) -> Self {
-        Task {
-            name,
-            state: TaskState::Begin,
-            ..Task::default()
-        }
-    }
-
-    fn generate_break_task(latest_task: &Task) -> Self {
-        let duration = Task::calculate_duration(&latest_task);
-        Task {
-            name: latest_task.name.clone(),
-            state: TaskState::Break,
-            duration,
-            end_time: chrono::offset::Local::now().naive_local(),
-            ..*latest_task
-        }
-    }
-
-    fn generate_back_task(latest_task: &Task) -> Self {
-        Task {
-            name: latest_task.name.clone(),
-            state: TaskState::Back,
-            begin_time: Task::default().begin_time,
-            ..*latest_task
-        }
-    }
-
-    fn generate_done_task(latest_task: &Task) -> Self {
-        if latest_task.state == TaskState::Break {
-            Task {
-                name: latest_task.name.clone(),
-                state: TaskState::End,
-                ..*latest_task
-            }
-        } else if latest_task.state == TaskState::Back {
-            let duration = Task::calculate_duration(&latest_task) + latest_task.duration;
-            Task {
-                name: latest_task.name.clone(),
-                state: TaskState::End,
-                duration,
-                begin_time: latest_task.begin_time,
-                ..Task::default()
-            }
-        } else {
-            let duration = Task::calculate_duration(&latest_task);
-            Task {
-                name: latest_task.name.clone(),
-                state: TaskState::End,
-                duration,
-                ..Task::default()
-            }
-        }
-    }
-
-    fn calculate_duration(&self) -> i64 {
-        let duration = chrono::offset::Local::now().naive_local() - self.begin_time;
-        duration.num_seconds()
-    }
 }
 
 fn get_latest_task_local(file: &mut fs::File) -> Task {

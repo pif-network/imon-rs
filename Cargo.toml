@@ -1,4 +1,3 @@
 [workspace]
-members = ["service", "libs"]
-exclude = ["cli"]
+members = ["service", "libs", "cli"]
 resolver = "2"
