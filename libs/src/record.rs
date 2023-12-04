@@ -25,8 +25,8 @@ impl Task {
         Task {
             name: String::new(),
             state: TaskState::Begin,
-            begin_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-            end_time: chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
+            begin_time: chrono::offset::Local::now().naive_local(),
+            end_time: chrono::offset::Local::now().naive_local(),
             duration: 0,
         }
     }

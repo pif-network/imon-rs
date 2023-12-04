@@ -58,7 +58,7 @@ fn get_latest_task_local(file: &mut fs::File) -> Task {
     file.read_to_string(&mut content).unwrap();
 
     if content.is_empty() {
-        return Task::default();
+        return Task::placeholder("fresh", TaskState::Idle);
     }
 
     let last_line = content.lines().last().unwrap();
