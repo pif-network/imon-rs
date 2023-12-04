@@ -61,7 +61,8 @@ enum AuthCommand {
     New {
         user_name: String,
     },
-    // Login with `user_key`
+    /// Login with `user_key`
+    #[command(name = "login")]
     LogIn {
         user_key: String,
     },
