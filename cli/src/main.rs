@@ -34,6 +34,9 @@ struct AuthResponse {
     data: AuthResponseData,
 }
 
+// #[derive(Subcommand)]
+// enum
+
 #[derive(Subcommand)]
 enum Commands {
     /// What are you working on?
@@ -48,8 +51,19 @@ enum Commands {
     Done,
     Check,
     /// Register yourself.
-    Auth {
-        user_name: Option<String>,
+    #[command(subcommand)]
+    Auth(AuthCommand),
+}
+
+#[derive(Subcommand)]
+enum AuthCommand {
+    /// Register yourself.
+    New {
+        user_name: String,
+    },
+    // Login with `user_key`
+    LogIn {
+        user_key: String,
     },
 }
 
@@ -82,12 +96,14 @@ const SERVICE_DOMAIN: &'static str = "http://localhost:8000";
 struct Endpoints {
     auth: String,
     post_task_payload: String,
+    get_task_log: String,
 }
 
 fn main() {
     let endpoints = Endpoints {
-        auth: format!("{}{}", SERVICE_DOMAIN, "/v1/credentials"),
+        auth: format!("{}{}", SERVICE_DOMAIN, "/v1/record/new"),
         post_task_payload: format!("{}{}", SERVICE_DOMAIN, "/v1/store"),
+        get_task_log: format!("{}{}", SERVICE_DOMAIN, "/v1/task-log"),
     };
     let request_client = reqwest::blocking::Client::new();
 
@@ -310,43 +326,92 @@ fn main() {
             Commands::Check {} => {
                 println!("You are working on `{}`.", latest_task.name);
             }
-            Commands::Auth { user_name } => {
-                if !current_user_name.is_empty() {
-                    println!("You are already registered as `{}`.", current_user_name);
-                    println!("Please unregister first.");
-                    return;
-                }
+            Commands::Auth { 0: auth_command } => match auth_command {
+                AuthCommand::New { user_name } => {
+                    if !current_user_name.is_empty() {
+                        println!("You are already registered as `{}`.", current_user_name);
+                        println!("Please unregister first.");
+                        return;
+                    }
 
-                match request_client
-                    .post(endpoints.auth)
-                    .json(&serde_json::json!({
-                        "user_name": user_name,
-                    }))
-                    .send()
-                {
-                    Ok(r) => {
-                        let json_r = r.json::<AuthResponse>().unwrap();
-                        println!("{:?}", json_r);
+                    match request_client
+                        .post(endpoints.auth)
+                        .json(&serde_json::json!({
+                            "user_name": user_name,
+                        }))
+                        .send()
+                    {
+                        Ok(r) => {
+                            let json_r = r.json::<AuthResponse>().unwrap();
+                            println!("{:?}", json_r);
 
-                        let mut user_file = fs::File::options()
-                            .write(true)
-                            .create(true)
-                            .truncate(true)
-                            .open(user_path)
-                            .unwrap();
+                            let mut user_file = fs::File::options()
+                                .write(true)
+                                .create(true)
+                                .truncate(true)
+                                .open(user_path)
+                                .unwrap();
 
-                        if let Err(e) = user_file.write_all(&json_r.data.user_key.into_bytes()) {
-                            eprintln!("Couldn't write to file: {}", e);
-                            return;
+                            if let Err(e) = user_file.write_all(&json_r.data.user_key.into_bytes())
+                            {
+                                eprintln!("Couldn't write to file: {}", e);
+                                return;
+                            }
                         }
-                    }
-                    Err(e) => {
-                        println!("{:?}", e);
-                    }
-                };
+                        Err(e) => {
+                            println!("{:?}", e);
+                        }
+                    };
 
-                println!("Drink water, {}.", user_name.as_ref().unwrap());
-            }
+                    println!("Drink water, {}.", user_name);
+                }
+                AuthCommand::LogIn { user_key } => {
+                    if !current_user_name.is_empty() {
+                        println!("You are already registered as `{}`.", current_user_name);
+                        println!("Please unregister first.");
+                        return;
+                    }
+
+                    match request_client
+                        .post(endpoints.get_task_log)
+                        .json(&serde_json::json!({
+                            "key": user_key,
+                        }))
+                        .send()
+                    {
+                        Ok(r) => {
+                            match r.error_for_status() {
+                                Ok(res) => {
+                                    let json_r = res.json::<TaskResponse>().unwrap();
+                                    println!("{:?}", json_r);
+
+                                    let mut user_file = fs::File::options()
+                                        .write(true)
+                                        .create(true)
+                                        .truncate(true)
+                                        .open(user_path)
+                                        .unwrap();
+
+                                    if let Err(e) = user_file.write_all(user_key.as_bytes()) {
+                                        eprintln!("Couldn't write to file: {}", e);
+                                        return;
+                                    }
+                                }
+                                Err(e) => {
+                                    if e.status().unwrap().is_client_error() {
+                                        println!("User not found.");
+                                    }
+                                }
+                            };
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                        }
+                    };
+
+                    println!("Drink water, {}.", user_key);
+                }
+            },
         }
     } else {
         if current_user_name.is_empty() {
@@ -374,7 +439,7 @@ mod tests {
             .open("/tmp/imon-tmp.txt")
             .unwrap();
 
-        let parts_by_space = get_latest_task_local(&mut file);
+        let _parts_by_space = get_latest_task_local(&mut file);
 
         // assert_eq!(parts_by_space.len(), 0);
     }
