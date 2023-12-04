@@ -7,7 +7,7 @@ cli scmd *args:
 	#!/bin/bash
 	if [ {{scmd}} = "ir" ]; then 
 		cargo +nightly install im --path ./cli -Z no-index-update
-	else if [ {{scmd}} = "build" ]; then
+	elif [ {{scmd}} = "build" ]; then
 		cargo +nightly build -p im -Z no-index-update
 	else
 		cargo {{scmd}} -p cli {{args}}
