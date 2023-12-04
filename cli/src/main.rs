@@ -122,7 +122,10 @@ fn main() {
                     return;
                 }
 
-                if latest_task.state == TaskState::Begin || latest_task.state == TaskState::Break {
+                if latest_task.state == TaskState::Begin
+                    || latest_task.state == TaskState::Break
+                    || latest_task.state == TaskState::Back
+                {
                     println!(
                         "You are already working on `{}`. Please finish it first.",
                         latest_task.name
