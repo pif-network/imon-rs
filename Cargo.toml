@@ -1,3 +1,6 @@
 [workspace]
 members = ["service", "libs", "cli"]
 resolver = "2"
+
+[patch.crates-io]
+bb8-redis = { path = "./local-patches/bb8/redis" }

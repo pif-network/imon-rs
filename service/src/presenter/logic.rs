@@ -1,6 +1,11 @@
 use std::iter::successors;
 
-use redis::{Commands, JsonCommands};
+use bb8_redis::{
+    bb8::Pool,
+    redis::{self, AsyncCommands, AsyncIter, JsonAsyncCommands},
+    RedisConnectionManager,
+};
+// use redis::{Commands, JsonCommands};
 
 use super::{
     GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, StoreTaskPayload,
@@ -11,15 +16,18 @@ use libs::{
     OperatingRedisKey, UserRecordRedisJsonPath,
 };
 
-pub(super) fn perform_store_task(
+pub(super) async fn perform_store_task(
     payload: StoreTaskPayload,
-    redis_client: redis::Client,
+    redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<(), redis::RedisError> {
-    let mut con = redis_client.get_connection()?;
-    match con.json_get::<&std::string::String, &str, Option<String>>(
-        &payload.user_name,
-        UserRecordRedisJsonPath::Root.to_string().as_str(),
-    ) {
+    let mut con = redis_pool.get().await.unwrap();
+    match con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.user_name,
+            UserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await
+    {
         Ok(data_str) => match data_str {
             Some(data_str) => {
                 let mut user_data: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
@@ -34,25 +42,34 @@ pub(super) fn perform_store_task(
                     user_data[0].task_history.pop();
                 };
 
-                con.json_set(
-                    &payload.user_name,
-                    UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
-                    &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
-                )?;
+                let _: () = con
+                    .json_set(
+                        &payload.user_name,
+                        UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
+                        &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
+                    )
+                    .await
+                    .unwrap();
 
                 println!("appending");
-                con.json_arr_append(
-                    &payload.user_name,
-                    UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
-                    &serde_json::json!(&payload.task),
-                )?;
+                let _: () = con
+                    .json_arr_append(
+                        &payload.user_name,
+                        UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
+                        &serde_json::json!(&payload.task),
+                    )
+                    .await
+                    .unwrap();
 
                 println!("setting current task");
-                con.json_set(
-                    &payload.user_name,
-                    UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
-                    &serde_json::json!(&payload.task),
-                )?;
+                let _: () = con
+                    .json_set(
+                        &payload.user_name,
+                        UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
+                        &serde_json::json!(&payload.task),
+                    )
+                    .await
+                    .unwrap();
 
                 Ok(())
             }
@@ -75,22 +92,25 @@ fn generate_key(user_name: &str, id: i32) -> String {
     format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
 }
 
-pub(super) fn perform_register_record(
+pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
-    redis_client: redis::Client,
+    redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<String, redis::RedisError> {
-    let mut con = redis_client.get_connection()?;
+    let mut con = redis_pool.get().await.unwrap();
 
     let new_id;
 
-    match con.get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str()) {
+    match con
+        .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
+        .await
+    {
         Ok(current_id) => {
             new_id = current_id + 1;
-            con.set("current_id", new_id)?;
+            con.set("current_id", new_id).await?;
         }
         Err(err) => {
             new_id = 0;
-            con.set("current_id", 0)?;
+            con.set("current_id", 0).await?;
 
             println!("err: {:?}", err);
         }
@@ -108,22 +128,26 @@ pub(super) fn perform_register_record(
         &user_key,
         UserRecordRedisJsonPath::Root.to_string().as_str(),
         &serde_json::json!(user_data),
-    )?;
+    )
+    .await?;
 
     println!("new user: {:?}", user_data);
 
     Ok(user_key)
 }
 
-pub(super) fn perform_reset_task(
+pub(super) async fn perform_reset_task(
     payload: ResetUserDataPayload,
-    redis_client: redis::Client,
+    redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, redis::RedisError> {
-    let mut con = redis_client.get_connection()?;
-    match con.json_get::<&std::string::String, &str, Option<String>>(
-        &payload.key,
-        UserRecordRedisJsonPath::Root.to_string().as_str(),
-    ) {
+    let mut con = redis_pool.get().await.unwrap();
+    match con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.key,
+            UserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await
+    {
         Ok(data_str) => match data_str {
             Some(_data_str) => {
                 let user_data = UserRecord {
@@ -138,7 +162,8 @@ pub(super) fn perform_reset_task(
                     &payload.key,
                     UserRecordRedisJsonPath::Root.to_string().as_str(),
                     &serde_json::json!(user_data),
-                )?;
+                )
+                .await?;
 
                 Ok(user_data)
             }
@@ -155,16 +180,19 @@ pub(super) fn perform_reset_task(
     }
 }
 
-pub(super) fn perform_get_user_task_log(
+pub(super) async fn perform_get_user_task_log(
     payload: GetTaskLogPayload,
-    redis_client: redis::Client,
+    redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, redis::RedisError> {
-    let mut con = redis_client.get_connection()?;
+    let mut con = redis_pool.get().await.unwrap();
 
-    match con.json_get::<&std::string::String, &str, Option<String>>(
-        &payload.key,
-        UserRecordRedisJsonPath::Root.to_string().as_str(),
-    ) {
+    match con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.key,
+            UserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await
+    {
         Ok(data_str) => match data_str {
             Some(data_str) => {
                 let user_data_vec: Vec<UserRecord> =
@@ -190,21 +218,28 @@ pub(super) fn perform_get_user_task_log(
     }
 }
 
-pub(super) fn perform_get_all_records(
-    redis_client: redis::Client,
+pub(super) async fn perform_get_all_records(
+    redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<Vec<UserRecord>, redis::RedisError> {
-    let mut con = redis_client.get_connection()?;
+    let mut con = redis_pool.get().await.unwrap();
 
-    // FIXME: Multiple borrows of `con` are not allowed.
-    match redis_client.get_connection()?.scan_match("*:????") {
-        Ok(keys) => {
+    let t = con.scan_match::<&str, std::string::String>("*:????").await;
+
+    match t {
+        Ok(mut keys) => {
             let mut user_records: Vec<UserRecord> = vec![];
 
-            for key in keys {
-                match con.json_get::<&std::string::String, &str, Option<String>>(
-                    &key,
-                    UserRecordRedisJsonPath::Root.to_string().as_str(),
-                ) {
+            while let Some(key) = keys.next_item().await {
+                let new_pool = redis_pool.clone();
+                let mut new_con = new_pool.get().await.unwrap();
+
+                match new_con
+                    .json_get::<&std::string::String, &str, Option<String>>(
+                        &key,
+                        UserRecordRedisJsonPath::Root.to_string().as_str(),
+                    )
+                    .await
+                {
                     Ok(data_str) => match data_str {
                         Some(data_str) => {
                             let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)
@@ -232,15 +267,18 @@ pub(super) fn perform_get_all_records(
     }
 }
 
-pub(super) fn perform_update_task(
+pub(super) async fn perform_update_task(
     payload: UpdateTaskPayload,
-    redis_client: redis::Client,
+    redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<(), redis::RedisError> {
-    let mut con = redis_client.get_connection()?;
-    match con.json_get::<&std::string::String, &str, Option<String>>(
-        &payload.key,
-        UserRecordRedisJsonPath::Root.to_string().as_str(),
-    ) {
+    let mut con = redis_pool.get().await.unwrap();
+    match con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.key,
+            UserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await
+    {
         Ok(data_str) => match data_str {
             Some(data_str) => {
                 let user_record_vec: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
@@ -255,13 +293,15 @@ pub(super) fn perform_update_task(
                         &payload.key,
                         UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
                         &serde_json::json!(&new_end_task),
-                    )?;
+                    )
+                    .await?;
                     println!("appended -> current task");
                     con.json_arr_append(
                         &payload.key,
                         UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
                         &serde_json::json!(&new_end_task),
-                    )?;
+                    )
+                    .await?;
                     println!("appended -> task history");
 
                     Ok(())

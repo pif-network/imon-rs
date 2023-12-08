@@ -44,7 +44,7 @@ pub async fn store_task(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<StoreTaskPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_store_task(payload, app_state.redis_client) {
+    match perform_store_task(payload, app_state.redis_pool).await {
         Ok(_) => Ok(Json(serde_json::json!({
             "status": "ok",
         }))),
@@ -59,7 +59,7 @@ pub async fn reset_task(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<ResetUserDataPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_reset_task(payload, app_state.redis_client) {
+    match perform_reset_task(payload, app_state.redis_pool).await {
         Ok(user_data) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -77,7 +77,7 @@ pub async fn register_record(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_register_record(payload, app_state.redis_client) {
+    match perform_register_record(payload, app_state.redis_pool).await {
         Ok(user_key) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -95,7 +95,7 @@ pub async fn get_all_records(
     State(app_state): State<AppState>,
     // ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_get_all_records(app_state.redis_client) {
+    match perform_get_all_records(app_state.redis_pool).await {
         Ok(user_records) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -113,7 +113,7 @@ pub async fn get_task_log(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_get_user_task_log(payload, app_state.redis_client) {
+    match perform_get_user_task_log(payload, app_state.redis_pool).await {
         Ok(task_log) => Ok(Json(serde_json::json!({
             "status": "ok",
             "data": {
@@ -131,7 +131,7 @@ pub async fn update_task_log(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<UpdateTaskPayload>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    match perform_update_task(payload, app_state.redis_client) {
+    match perform_update_task(payload, app_state.redis_pool).await {
         Ok(_) => Ok(Json(serde_json::json!({
             "status": "ok",
         }))),

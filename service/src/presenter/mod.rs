@@ -1,4 +1,5 @@
 use axum::extract::rejection::JsonRejection;
+use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
 use libs::record::{Task, TaskState};

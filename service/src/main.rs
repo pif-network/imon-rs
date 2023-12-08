@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use shuttle_runtime::{CustomError, Error};
 use std::net::SocketAddr;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
@@ -39,7 +40,8 @@ type PShuttleAxum = Result<AxumService, Error>;
 
 #[derive(Clone)]
 pub struct AppState {
-    redis_client: redis::Client,
+    // redis_client: redis::Client,
+    redis_pool: Pool<RedisConnectionManager>,
 }
 
 #[shuttle_runtime::main]
@@ -49,9 +51,14 @@ async fn axum() -> PShuttleAxum {
         "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
     ).expect("Redis client should be created successfully."); // FIXME: Handle the error
 
-    let app_state = AppState {
-        redis_client: client,
-    };
+    let redis_manager = RedisConnectionManager::new("rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446").unwrap();
+    let pool = bb8_redis::bb8::Pool::builder()
+        .min_idle(Some(4))
+        .build(redis_manager)
+        .await
+        .unwrap();
+
+    let app_state = AppState { redis_pool: pool };
 
     let router = Router::new()
         .route("/v1/store", post(handlers::store_task))
