@@ -32,9 +32,9 @@ where
         match axum::Json::<T>::from_request(req, state).await {
             Ok(json) => Ok(Self(json.0)),
             Err(rejection) => {
-                let payload = construct_json_error_response(&rejection);
-                tracing::error!("rejection: {:?}", rejection);
-                Err((rejection.status(), Json(payload)))
+                tracing::error!("{:?}", rejection);
+                let err_resp = construct_json_error_response(&rejection);
+                Err(err_resp)
             }
         }
     }

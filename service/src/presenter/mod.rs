@@ -1,4 +1,4 @@
-use axum::extract::rejection::JsonRejection;
+use axum::{extract::rejection::JsonRejection, http::StatusCode, Json};
 use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
@@ -49,9 +49,24 @@ fn construct_redis_error_response(err: redis::RedisError) -> serde_json::Value {
     }
 }
 
-fn construct_json_error_response(err: &JsonRejection) -> serde_json::Value {
-    serde_json::json!({
-        "status": "error",
-        "message": err.to_string(),
-    })
+fn construct_json_error_response(
+    err: &JsonRejection,
+) -> (StatusCode, axum::Json<serde_json::Value>) {
+    match err {
+        case @ JsonRejection::JsonDataError(_) => {
+            let p = serde_json::json!({
+                "status": "error",
+                "message": "Invalid JSON",
+                "error": format!("{:?}", case.body_text()),
+            });
+            (StatusCode::BAD_REQUEST, Json(p))
+        }
+        _ => {
+            let p = serde_json::json!({
+                "status": "error",
+                "message": "Unknown error",
+            });
+            (StatusCode::BAD_REQUEST, Json(p))
+        }
+    }
 }
