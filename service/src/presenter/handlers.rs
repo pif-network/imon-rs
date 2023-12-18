@@ -7,7 +7,7 @@ use axum::{
 };
 
 use super::{
-    construct_json_error_response, construct_redis_error_response,
+    construct_error_response, construct_json_error_response, construct_redis_error_response,
     logic::{
         perform_get_all_records, perform_get_user_task_log, perform_register_record,
         perform_reset_task, perform_store_task, perform_update_task,
@@ -49,7 +49,7 @@ pub async fn store_task(
             "status": "ok",
         }))),
         Err(err) => {
-            let error_response = construct_redis_error_response(err);
+            let error_response = construct_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }

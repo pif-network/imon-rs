@@ -47,11 +47,8 @@ pub struct AppState {
 #[shuttle_runtime::main]
 // async fn axum() -> shuttle_axum::ShuttleAxum {
 async fn axum() -> PShuttleAxum {
-    let client = redis::Client::open(
-        "rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446",
-    ).expect("Redis client should be created successfully."); // FIXME: Handle the error
-
-    let redis_manager = RedisConnectionManager::new("rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446").unwrap();
+    let redis_manager = RedisConnectionManager::new("rediss://default:c133fb0ebf6341f4a7a58c9a648b353e@apn1-sweet-haddock-33446.upstash.io:33446")
+        .expect("Redis connection URL should be valid");
     let pool = bb8_redis::bb8::Pool::builder()
         .min_idle(Some(4))
         .build(redis_manager)

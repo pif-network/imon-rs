@@ -16,10 +16,16 @@ use libs::{
     OperatingRedisKey, UserRecordRedisJsonPath,
 };
 
+#[derive(thiserror::Error, Debug)]
+pub enum AppError {
+    #[error("Redis error: {0}")]
+    RedisError(#[from] redis::RedisError),
+}
+
 pub(super) async fn perform_store_task(
     payload: StoreTaskPayload,
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<(), redis::RedisError> {
+) -> Result<(), AppError> {
     let mut con = redis_pool.get().await.unwrap();
     match con
         .json_get::<&std::string::String, &str, Option<String>>(
@@ -73,15 +79,18 @@ pub(super) async fn perform_store_task(
 
                 Ok(())
             }
-            None => Err(redis::RedisError::from((
-                redis::ErrorKind::ResponseError,
-                // Redis gives nil -> no key -> no user.
-                "User not found.",
-            ))),
+            None => Err(AppError::RedisError(
+                (
+                    redis::ErrorKind::ResponseError,
+                    // Redis gives nil -> no key -> no user.
+                    "User not found.",
+                )
+                    .into(),
+            )),
         },
         Err(err) => {
             println!("err: {:?}", err);
-            return Err(err);
+            return Err(AppError::RedisError(err));
         }
     }
 }
@@ -195,15 +204,19 @@ pub(super) async fn perform_get_user_task_log(
     {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let user_data_vec: Vec<UserRecord> =
-                    serde_json::from_str(&data_str).expect("Parsing `user_data` should not fail.");
+                if let Ok(user_data_vec) = serde_json::from_str::<Vec<UserRecord>>(&data_str) {
+                    let mut user_data = user_data_vec.into_iter().next().unwrap();
+                    user_data
+                        .task_history
+                        .sort_by(|a, b| b.begin_time.cmp(&a.begin_time));
 
-                let mut user_data = user_data_vec.into_iter().next().unwrap();
-                user_data
-                    .task_history
-                    .sort_by(|a, b| b.begin_time.cmp(&a.begin_time));
-
-                Ok(user_data)
+                    Ok(user_data)
+                } else {
+                    Err(redis::RedisError::from((
+                        redis::ErrorKind::ResponseError,
+                        "Key is not in the correct format",
+                    )))
+                }
             }
             None => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
