@@ -151,11 +151,14 @@ pub(super) async fn perform_reset_task(
     {
         Ok(data_str) => match data_str {
             Some(_data_str) => {
+                let vec_payload_key = payload.key.split(":").collect::<Vec<&str>>();
                 let user_data = UserRecord {
-                    id: payload.key.split(":").collect::<Vec<&str>>()[1]
-                        .parse::<i32>()
-                        .unwrap(),
-                    user_name: payload.key.split(":").collect::<Vec<&str>>()[0].to_string(),
+                    id: vec_payload_key[1].parse::<i32>().map_err(|_| {
+                        RuntimeError::UnprocessableEntity {
+                            name: "id".to_string(),
+                        }
+                    })?,
+                    user_name: vec_payload_key[0].to_string(),
                     task_history: vec![],
                     current_task: Task::placeholder("reset", TaskState::Idle),
                 };
@@ -168,14 +171,12 @@ pub(super) async fn perform_reset_task(
 
                 Ok(user_data)
             }
-            None => Err(RuntimeError::RedisError(
-                (
-                    redis::ErrorKind::ResponseError,
-                    // Redis gives nil -> no key -> no user.
-                    "User not found.",
-                )
-                    .into(),
-            )),
+            None => {
+                tracing::debug!("non-exist record: {:?}", payload);
+                Err(RuntimeError::UnprocessableEntity {
+                    name: "key".to_string(),
+                })
+            }
         },
         Err(err) => {
             tracing::error!("err: {:?}", err);
