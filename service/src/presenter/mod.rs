@@ -50,22 +50,22 @@ impl IntoResponse for RuntimeError {
     fn into_response(self) -> axum::http::Response<axum::body::Body> {
         match self {
             RuntimeError::RedisError(err) => {
-                let err_resp = construct_err_resp_redis(err);
-                (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err_resp)).into_response()
+                let err_payload = construct_err_payload_redis(err);
+                (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err_payload)).into_response()
             }
             RuntimeError::SerdeError(err) => {
-                let err_resp = construct_err_resp_de_upstream_data(err);
-                (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err_resp)).into_response()
+                let err_payload = construct_err_payload_de_upstream_data(err);
+                (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err_payload)).into_response()
             }
             RuntimeError::UnprocessableEntity { name } => {
-                let err_resp = construct_err_resp_unprocessable_entity(name);
-                (StatusCode::UNPROCESSABLE_ENTITY, axum::Json(err_resp)).into_response()
+                let err_payload = construct_err_payload_unprocessable_entity(name);
+                (StatusCode::UNPROCESSABLE_ENTITY, axum::Json(err_payload)).into_response()
             }
         }
     }
 }
 
-fn construct_err_resp_unprocessable_entity(name: String) -> serde_json::Value {
+fn construct_err_payload_unprocessable_entity(name: String) -> serde_json::Value {
     serde_json::json!({
         "status": "error",
         "message": "Unprocessable entity",
@@ -73,7 +73,7 @@ fn construct_err_resp_unprocessable_entity(name: String) -> serde_json::Value {
     })
 }
 
-fn construct_err_resp_redis(err: redis::RedisError) -> serde_json::Value {
+fn construct_err_payload_redis(err: redis::RedisError) -> serde_json::Value {
     match err.kind() {
         redis::ErrorKind::ResponseError => serde_json::json!({
             "status": "error",
@@ -88,7 +88,7 @@ fn construct_err_resp_redis(err: redis::RedisError) -> serde_json::Value {
     }
 }
 
-fn construct_err_resp_de_upstream_data(err: serde_json::Error) -> serde_json::Value {
+fn construct_err_payload_de_upstream_data(err: serde_json::Error) -> serde_json::Value {
     serde_json::json!({
         "status": "error",
         "message": err.to_string(),
