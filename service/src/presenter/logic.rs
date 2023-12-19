@@ -31,7 +31,7 @@ pub(super) async fn perform_store_task(
         Ok(data_str) => match data_str {
             Some(data_str) => {
                 let mut user_data: Vec<UserRecord> = serde_json::from_str(&data_str)?;
-                println!("user_data: {:?}", user_data);
+                tracing::debug!("user_data: {:?}", user_data);
 
                 // Remove the latest task from the history
                 // to append the updated version later.
@@ -51,7 +51,7 @@ pub(super) async fn perform_store_task(
                     .await
                     .unwrap();
 
-                println!("appending");
+                tracing::debug!("appending");
                 let _: () = con
                     .json_arr_append(
                         &payload.user_name,
@@ -61,7 +61,7 @@ pub(super) async fn perform_store_task(
                     .await
                     .unwrap();
 
-                println!("setting current task");
+                tracing::debug!("setting current task");
                 let _: () = con
                     .json_set(
                         &payload.user_name,
@@ -83,7 +83,7 @@ pub(super) async fn perform_store_task(
             )),
         },
         Err(err) => {
-            println!("err: {:?}", err);
+            tracing::error!("err: {:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
@@ -114,8 +114,6 @@ pub(super) async fn perform_register_record(
         Err(err) => {
             new_id = 0;
             con.set("current_id", 0).await?;
-
-            println!("err: {:?}", err);
         }
     }
 
@@ -134,7 +132,7 @@ pub(super) async fn perform_register_record(
     )
     .await?;
 
-    println!("new user: {:?}", user_data);
+    tracing::debug!("new user: {:?}", user_data);
 
     Ok(user_key)
 }
@@ -180,7 +178,7 @@ pub(super) async fn perform_reset_task(
             )),
         },
         Err(err) => {
-            println!("err: {:?}", err);
+            tracing::error!("err: {:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
@@ -219,7 +217,7 @@ pub(super) async fn perform_get_user_task_log(
             )),
         },
         Err(err) => {
-            println!("err: {:?}", err);
+            tracing::error!("err: {:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
@@ -250,7 +248,8 @@ pub(super) async fn perform_get_all_records(
             Ok(data_str) => match data_str {
                 Some(data_str) => {
                     let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)?;
-                    println!("user_data: {:?}", user_data);
+                    tracing::debug!("user_data: {:?}", user_data);
+
                     user_records.push(user_data.into_iter().next().unwrap());
                 }
                 None => {
@@ -258,7 +257,7 @@ pub(super) async fn perform_get_all_records(
                 }
             },
             Err(err) => {
-                println!("err: {:?}", err);
+                tracing::debug!("err: {:?}", err);
                 return Err(RuntimeError::RedisError(err));
             }
         }
@@ -288,21 +287,23 @@ pub(super) async fn perform_update_task(
                     && payload.state == TaskState::End
                 {
                     let new_end_task = Task::generate_done_task(&user_record.current_task);
-                    println!("new_end_task: {:?}", new_end_task);
+                    tracing::debug!("new_end_task: {:?}", new_end_task);
+
                     con.json_set(
                         &payload.key,
                         UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
                         &serde_json::json!(&new_end_task),
                     )
                     .await?;
-                    println!("appended -> current task");
+                    tracing::debug!("set -> current task");
+
                     con.json_arr_append(
                         &payload.key,
                         UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
                         &serde_json::json!(&new_end_task),
                     )
                     .await?;
-                    println!("appended -> task history");
+                    tracing::debug!("appended -> task history");
 
                     Ok(())
                 } else {
@@ -320,7 +321,7 @@ pub(super) async fn perform_update_task(
             )),
         },
         Err(err) => {
-            println!("err: {:?}", err);
+            tracing::debug!("err: {:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }

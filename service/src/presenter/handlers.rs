@@ -7,7 +7,7 @@ use axum::{
 };
 
 use super::{
-    construct_error_response, construct_json_error_response, construct_redis_error_response,
+    construct_err_resp_invalid_incoming_json, construct_error_response,
     logic::{
         perform_get_all_records, perform_get_user_task_log, perform_register_record,
         perform_reset_task, perform_store_task, perform_update_task,
@@ -33,7 +33,7 @@ where
             Ok(json) => Ok(Self(json.0)),
             Err(rejection) => {
                 tracing::error!("{:?}", rejection);
-                let err_resp = construct_json_error_response(&rejection);
+                let err_resp = construct_err_resp_invalid_incoming_json(&rejection);
                 Err(err_resp)
             }
         }
