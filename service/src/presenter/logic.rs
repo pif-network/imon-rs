@@ -2,7 +2,7 @@ use std::iter::successors;
 
 use bb8_redis::{
     bb8::Pool,
-    redis::{self, AsyncCommands, JsonAsyncCommands},
+    redis::{AsyncCommands, JsonAsyncCommands},
     RedisConnectionManager,
 };
 // use redis::{Commands, JsonCommands};
@@ -48,8 +48,7 @@ pub(super) async fn perform_store_task(
                         UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
                         &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
                     )
-                    .await
-                    .unwrap();
+                    .await?;
 
                 tracing::debug!("appending");
                 let _: () = con
@@ -58,8 +57,7 @@ pub(super) async fn perform_store_task(
                         UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
                         &serde_json::json!(&payload.task),
                     )
-                    .await
-                    .unwrap();
+                    .await?;
 
                 tracing::debug!("setting current task");
                 let _: () = con
@@ -68,22 +66,19 @@ pub(super) async fn perform_store_task(
                         UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
                         &serde_json::json!(&payload.task),
                     )
-                    .await
-                    .unwrap();
+                    .await?;
 
                 Ok(())
             }
-            None => Err(RuntimeError::RedisError(
-                (
-                    redis::ErrorKind::ResponseError,
-                    // Redis gives nil -> no key -> no user.
-                    "User not found.",
-                )
-                    .into(),
-            )),
+            None => {
+                tracing::debug!("non-exist record: {:?}", payload);
+                Err(RuntimeError::UnprocessableEntity {
+                    name: "user_name".to_string(),
+                })
+            }
         },
         Err(err) => {
-            tracing::error!("err: {:?}", err);
+            tracing::debug!("{:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
@@ -99,10 +94,9 @@ pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<String, RuntimeError> {
-    let mut con = redis_pool.get().await.unwrap();
-
     let new_id;
 
+    let mut con = redis_pool.get().await.unwrap();
     match con
         .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
         .await
@@ -111,27 +105,26 @@ pub(super) async fn perform_register_record(
             new_id = current_id + 1;
             con.set("current_id", new_id).await?;
         }
-        Err(err) => {
+        Err(_err) => {
             new_id = 0;
             con.set("current_id", 0).await?;
         }
     }
 
     let user_key = generate_key(&payload.user_name, new_id);
-
     let user_data = UserRecord {
         id: new_id,
         user_name: payload.user_name,
         task_history: vec![],
         current_task: Task::placeholder("initialised", TaskState::Idle),
     };
+
     con.json_set(
         &user_key,
         UserRecordRedisJsonPath::Root.to_string().as_str(),
         &serde_json::json!(user_data),
     )
     .await?;
-
     tracing::debug!("new user: {:?}", user_data);
 
     Ok(user_key)
@@ -179,7 +172,7 @@ pub(super) async fn perform_reset_task(
             }
         },
         Err(err) => {
-            tracing::error!("err: {:?}", err);
+            tracing::debug!("{:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
@@ -190,7 +183,6 @@ pub(super) async fn perform_get_user_task_log(
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
-
     match con
         .json_get::<&std::string::String, &str, Option<String>>(
             &payload.key,
@@ -208,17 +200,15 @@ pub(super) async fn perform_get_user_task_log(
 
                 Ok(user_data)
             }
-            None => Err(RuntimeError::RedisError(
-                (
-                    redis::ErrorKind::ResponseError,
-                    // Redis gives nil -> no key -> no user.
-                    "User not found.",
-                )
-                    .into(),
-            )),
+            None => {
+                tracing::debug!("non-exist record: {:?}", payload);
+                Err(RuntimeError::UnprocessableEntity {
+                    name: "key".to_string(),
+                })
+            }
         },
         Err(err) => {
-            tracing::error!("err: {:?}", err);
+            tracing::debug!("err: {:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
@@ -228,7 +218,6 @@ pub(super) async fn perform_get_all_records(
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<Vec<UserRecord>, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
-
     let mut keys = con
         .scan_match::<&str, std::string::String>("*:????")
         .await?;
@@ -254,11 +243,14 @@ pub(super) async fn perform_get_all_records(
                     user_records.push(user_data.into_iter().next().unwrap());
                 }
                 None => {
-                    println!("User not found.");
+                    // NOTE: This technically will not happen, since
+                    // the keys are generated from the pre-defined pattern.
+                    // TODO: Handle when there exists keys that
+                    // follow the pattern but do not have the data.
                 }
             },
             Err(err) => {
-                tracing::debug!("err: {:?}", err);
+                tracing::debug!("{:?}", err);
                 return Err(RuntimeError::RedisError(err));
             }
         }
@@ -312,17 +304,15 @@ pub(super) async fn perform_update_task(
                     Ok(())
                 }
             }
-            None => Err(RuntimeError::RedisError(
-                (
-                    redis::ErrorKind::ResponseError,
-                    // Redis gives nil -> no key -> no user.
-                    "User not found.",
-                )
-                    .into(),
-            )),
+            None => {
+                tracing::debug!("non-exist record: {:?}", payload);
+                Err(RuntimeError::UnprocessableEntity {
+                    name: "key".to_string(),
+                })
+            }
         },
         Err(err) => {
-            tracing::debug!("err: {:?}", err);
+            tracing::debug!("{:?}", err);
             return Err(RuntimeError::RedisError(err));
         }
     }
