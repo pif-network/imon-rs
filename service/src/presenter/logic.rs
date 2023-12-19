@@ -201,22 +201,13 @@ pub(super) async fn perform_get_user_task_log(
     {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                if let Ok(user_data_vec) = serde_json::from_str::<Vec<UserRecord>>(&data_str) {
-                    let mut user_data = user_data_vec.into_iter().next().unwrap();
-                    user_data
-                        .task_history
-                        .sort_by(|a, b| b.begin_time.cmp(&a.begin_time));
+                let user_data_vec = serde_json::from_str::<Vec<UserRecord>>(&data_str)?;
+                let mut user_data = user_data_vec.into_iter().next().unwrap();
+                user_data
+                    .task_history
+                    .sort_by(|a, b| b.begin_time.cmp(&a.begin_time));
 
-                    Ok(user_data)
-                } else {
-                    Err(RuntimeError::RedisError(
-                        (
-                            redis::ErrorKind::ResponseError,
-                            "Key is not in the correct format",
-                        )
-                            .into(),
-                    ))
-                }
+                Ok(user_data)
             }
             None => Err(RuntimeError::RedisError(
                 (
@@ -258,8 +249,7 @@ pub(super) async fn perform_get_all_records(
         {
             Ok(data_str) => match data_str {
                 Some(data_str) => {
-                    let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)
-                        .expect("Parsing `user_data` should not fail.");
+                    let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)?;
                     println!("user_data: {:?}", user_data);
                     user_records.push(user_data.into_iter().next().unwrap());
                 }
