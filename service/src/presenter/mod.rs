@@ -44,12 +44,12 @@ pub enum RuntimeError {
 
 fn construct_error_response(err: RuntimeError) -> serde_json::Value {
     match err {
-        RuntimeError::RedisError(err) => construct_redis_error_response(err),
-        RuntimeError::SerdeError(err) => todo!(),
+        RuntimeError::RedisError(err) => construct_err_resp_redis(err),
+        RuntimeError::SerdeError(err) => construct_err_resp_de_upstream_data(err),
     }
 }
 
-fn construct_redis_error_response(err: redis::RedisError) -> serde_json::Value {
+fn construct_err_resp_redis(err: redis::RedisError) -> serde_json::Value {
     match err.kind() {
         redis::ErrorKind::ResponseError => serde_json::json!({
             "status": "error",
@@ -64,7 +64,14 @@ fn construct_redis_error_response(err: redis::RedisError) -> serde_json::Value {
     }
 }
 
-fn construct_json_error_response(
+fn construct_err_resp_de_upstream_data(err: serde_json::Error) -> serde_json::Value {
+    serde_json::json!({
+        "status": "error",
+        "message": err.to_string(),
+    })
+}
+
+fn construct_err_resp_invalid_incoming_json(
     err: &JsonRejection,
 ) -> (StatusCode, axum::Json<serde_json::Value>) {
     match err {
