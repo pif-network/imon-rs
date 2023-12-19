@@ -2,13 +2,13 @@ use std::iter::successors;
 
 use bb8_redis::{
     bb8::Pool,
-    redis::{self, AsyncCommands, AsyncIter, JsonAsyncCommands},
+    redis::{self, AsyncCommands, JsonAsyncCommands},
     RedisConnectionManager,
 };
 // use redis::{Commands, JsonCommands};
 
 use super::{
-    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, StoreTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
     UpdateTaskPayload,
 };
 use libs::{
@@ -16,16 +16,10 @@ use libs::{
     OperatingRedisKey, UserRecordRedisJsonPath,
 };
 
-#[derive(thiserror::Error, Debug)]
-pub enum AppError {
-    #[error("Redis error: {0}")]
-    RedisError(#[from] redis::RedisError),
-}
-
 pub(super) async fn perform_store_task(
     payload: StoreTaskPayload,
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<(), AppError> {
+) -> Result<(), RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
     match con
         .json_get::<&std::string::String, &str, Option<String>>(
@@ -36,7 +30,7 @@ pub(super) async fn perform_store_task(
     {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let mut user_data: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
+                let mut user_data: Vec<UserRecord> = serde_json::from_str(&data_str)?;
                 println!("user_data: {:?}", user_data);
 
                 // Remove the latest task from the history
@@ -79,7 +73,7 @@ pub(super) async fn perform_store_task(
 
                 Ok(())
             }
-            None => Err(AppError::RedisError(
+            None => Err(RuntimeError::RedisError(
                 (
                     redis::ErrorKind::ResponseError,
                     // Redis gives nil -> no key -> no user.
@@ -90,7 +84,7 @@ pub(super) async fn perform_store_task(
         },
         Err(err) => {
             println!("err: {:?}", err);
-            return Err(AppError::RedisError(err));
+            return Err(RuntimeError::RedisError(err));
         }
     }
 }
@@ -104,7 +98,7 @@ fn generate_key(user_name: &str, id: i32) -> String {
 pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<String, redis::RedisError> {
+) -> Result<String, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
     let new_id;
@@ -148,7 +142,7 @@ pub(super) async fn perform_register_record(
 pub(super) async fn perform_reset_task(
     payload: ResetUserDataPayload,
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<UserRecord, redis::RedisError> {
+) -> Result<UserRecord, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
     match con
         .json_get::<&std::string::String, &str, Option<String>>(
@@ -176,15 +170,18 @@ pub(super) async fn perform_reset_task(
 
                 Ok(user_data)
             }
-            None => Err(redis::RedisError::from((
-                redis::ErrorKind::ResponseError,
-                // Redis gives nil -> no key -> no user.
-                "User not found.",
-            ))),
+            None => Err(RuntimeError::RedisError(
+                (
+                    redis::ErrorKind::ResponseError,
+                    // Redis gives nil -> no key -> no user.
+                    "User not found.",
+                )
+                    .into(),
+            )),
         },
         Err(err) => {
             println!("err: {:?}", err);
-            return Err(err);
+            return Err(RuntimeError::RedisError(err));
         }
     }
 }
@@ -192,7 +189,7 @@ pub(super) async fn perform_reset_task(
 pub(super) async fn perform_get_user_task_log(
     payload: GetTaskLogPayload,
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<UserRecord, redis::RedisError> {
+) -> Result<UserRecord, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
     match con
@@ -212,78 +209,78 @@ pub(super) async fn perform_get_user_task_log(
 
                     Ok(user_data)
                 } else {
-                    Err(redis::RedisError::from((
-                        redis::ErrorKind::ResponseError,
-                        "Key is not in the correct format",
-                    )))
+                    Err(RuntimeError::RedisError(
+                        (
+                            redis::ErrorKind::ResponseError,
+                            "Key is not in the correct format",
+                        )
+                            .into(),
+                    ))
                 }
             }
-            None => Err(redis::RedisError::from((
-                redis::ErrorKind::ResponseError,
-                // Redis gives nil -> no key -> no user.
-                "User not found.",
-            ))),
+            None => Err(RuntimeError::RedisError(
+                (
+                    redis::ErrorKind::ResponseError,
+                    // Redis gives nil -> no key -> no user.
+                    "User not found.",
+                )
+                    .into(),
+            )),
         },
         Err(err) => {
             println!("err: {:?}", err);
-            return Err(err);
+            return Err(RuntimeError::RedisError(err));
         }
     }
 }
 
 pub(super) async fn perform_get_all_records(
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<Vec<UserRecord>, redis::RedisError> {
+) -> Result<Vec<UserRecord>, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
-    let t = con.scan_match::<&str, std::string::String>("*:????").await;
+    let mut keys = con
+        .scan_match::<&str, std::string::String>("*:????")
+        .await?;
 
-    match t {
-        Ok(mut keys) => {
-            let mut user_records: Vec<UserRecord> = vec![];
+    let mut user_records: Vec<UserRecord> = vec![];
 
-            while let Some(key) = keys.next_item().await {
-                let new_pool = redis_pool.clone();
-                let mut new_con = new_pool.get().await.unwrap();
+    while let Some(key) = keys.next_item().await {
+        let new_pool = redis_pool.clone();
+        let mut new_con = new_pool.get().await.unwrap();
 
-                match new_con
-                    .json_get::<&std::string::String, &str, Option<String>>(
-                        &key,
-                        UserRecordRedisJsonPath::Root.to_string().as_str(),
-                    )
-                    .await
-                {
-                    Ok(data_str) => match data_str {
-                        Some(data_str) => {
-                            let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)
-                                .expect("Parsing `user_data` should not fail.");
-                            println!("user_data: {:?}", user_data);
-                            user_records.push(user_data.into_iter().next().unwrap());
-                        }
-                        None => {
-                            println!("User not found.");
-                        }
-                    },
-                    Err(err) => {
-                        println!("err: {:?}", err);
-                        return Err(err);
-                    }
+        match new_con
+            .json_get::<&std::string::String, &str, Option<String>>(
+                &key,
+                UserRecordRedisJsonPath::Root.to_string().as_str(),
+            )
+            .await
+        {
+            Ok(data_str) => match data_str {
+                Some(data_str) => {
+                    let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)
+                        .expect("Parsing `user_data` should not fail.");
+                    println!("user_data: {:?}", user_data);
+                    user_records.push(user_data.into_iter().next().unwrap());
                 }
+                None => {
+                    println!("User not found.");
+                }
+            },
+            Err(err) => {
+                println!("err: {:?}", err);
+                return Err(RuntimeError::RedisError(err));
             }
-
-            Ok(user_records)
-        }
-        Err(err) => {
-            println!("err: {:?}", err);
-            return Err(err);
         }
     }
+
+    Ok(user_records)
 }
 
 pub(super) async fn perform_update_task(
     payload: UpdateTaskPayload,
     redis_pool: Pool<RedisConnectionManager>,
-) -> Result<(), redis::RedisError> {
+) -> Result<(), RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
     match con
         .json_get::<&std::string::String, &str, Option<String>>(
@@ -294,7 +291,7 @@ pub(super) async fn perform_update_task(
     {
         Ok(data_str) => match data_str {
             Some(data_str) => {
-                let user_record_vec: Vec<UserRecord> = serde_json::from_str(&data_str).unwrap();
+                let user_record_vec: Vec<UserRecord> = serde_json::from_str(&data_str)?;
 
                 let user_record = user_record_vec.into_iter().next().unwrap();
                 if user_record.current_task.state != TaskState::End
@@ -323,15 +320,18 @@ pub(super) async fn perform_update_task(
                     Ok(())
                 }
             }
-            None => Err(redis::RedisError::from((
-                redis::ErrorKind::ResponseError,
-                // Redis gives nil -> no key -> no user.
-                "User not found.",
-            ))),
+            None => Err(RuntimeError::RedisError(
+                (
+                    redis::ErrorKind::ResponseError,
+                    // Redis gives nil -> no key -> no user.
+                    "User not found.",
+                )
+                    .into(),
+            )),
         },
         Err(err) => {
             println!("err: {:?}", err);
-            return Err(err);
+            return Err(RuntimeError::RedisError(err));
         }
     }
 }

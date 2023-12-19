@@ -67,7 +67,7 @@ pub async fn reset_task(
             }
         }))),
         Err(err) => {
-            let error_response = construct_redis_error_response(err);
+            let error_response = construct_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
@@ -85,7 +85,7 @@ pub async fn register_record(
             }
         }))),
         Err(err) => {
-            let error_response = construct_redis_error_response(err);
+            let error_response = construct_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
@@ -103,7 +103,7 @@ pub async fn get_all_records(
             }
         }))),
         Err(err) => {
-            let error_response = construct_redis_error_response(err);
+            let error_response = construct_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
@@ -121,7 +121,7 @@ pub async fn get_task_log(
             }
         }))),
         Err(err) => {
-            let error_response = construct_redis_error_response(err);
+            let error_response = construct_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }
@@ -136,7 +136,7 @@ pub async fn update_task_log(
             "status": "ok",
         }))),
         Err(err) => {
-            let error_response = construct_redis_error_response(err);
+            let error_response = construct_error_response(err);
             Err((StatusCode::BAD_REQUEST, Json(error_response)))
         }
     }

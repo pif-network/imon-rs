@@ -34,9 +34,18 @@ pub struct UpdateTaskPayload {
     state: TaskState,
 }
 
-fn construct_error_response(err: logic::AppError) -> serde_json::Value {
+#[derive(thiserror::Error, Debug)]
+pub enum RuntimeError {
+    #[error("Redis error: {0}")]
+    RedisError(#[from] redis::RedisError),
+    #[error("JSON error: {0}")]
+    SerdeError(#[from] serde_json::Error),
+}
+
+fn construct_error_response(err: RuntimeError) -> serde_json::Value {
     match err {
-        logic::AppError::RedisError(err) => construct_redis_error_response(err),
+        RuntimeError::RedisError(err) => construct_redis_error_response(err),
+        RuntimeError::SerdeError(err) => todo!(),
     }
 }
 
