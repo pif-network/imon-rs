@@ -16,7 +16,7 @@ cli scmd *args:
 service scmd *args:
 	#!/bin/bash
 	if [ {{scmd}} = "dev" ]; then
-		cargo watch -s "cargo shuttle run" -i cli/
+		RUST_LOG="service=debug" cargo watch -s "cargo shuttle run" -i cli/
 	elif [ {{scmd}} = "stress" ]; then
 		oha -n 250 -c 50 -q 4 --latency-correction --disable-keepalive http://localhost:8000/v1/record/all
 	else
