@@ -1,4 +1,4 @@
-use axum::{extract::rejection::JsonRejection, http::StatusCode, Json};
+use axum::{extract::rejection::JsonRejection, http::StatusCode, response::IntoResponse, Json};
 use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
@@ -46,11 +46,22 @@ pub enum RuntimeError {
     UnprocessableEntity { name: String },
 }
 
-fn construct_error_response(err: RuntimeError) -> serde_json::Value {
-    match err {
-        RuntimeError::RedisError(err) => construct_err_resp_redis(err),
-        RuntimeError::SerdeError(err) => construct_err_resp_de_upstream_data(err),
-        RuntimeError::UnprocessableEntity { name } => construct_err_resp_unprocessable_entity(name),
+impl IntoResponse for RuntimeError {
+    fn into_response(self) -> axum::http::Response<axum::body::Body> {
+        match self {
+            RuntimeError::RedisError(err) => {
+                let err_resp = construct_err_resp_redis(err);
+                (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err_resp)).into_response()
+            }
+            RuntimeError::SerdeError(err) => {
+                let err_resp = construct_err_resp_de_upstream_data(err);
+                (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(err_resp)).into_response()
+            }
+            RuntimeError::UnprocessableEntity { name } => {
+                let err_resp = construct_err_resp_unprocessable_entity(name);
+                (StatusCode::UNPROCESSABLE_ENTITY, axum::Json(err_resp)).into_response()
+            }
+        }
     }
 }
 
