@@ -34,6 +34,11 @@ pub struct UpdateTaskPayload {
     state: TaskState,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RegisterSudoUserPayload {
+    user_name: String,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     #[error("Redis error: {0}")]

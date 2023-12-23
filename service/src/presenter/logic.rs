@@ -8,11 +8,11 @@ use bb8_redis::{
 // use redis::{Commands, JsonCommands};
 
 use super::{
-    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
-    UpdateTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, RegisterSudoUserPayload, ResetUserDataPayload,
+    RuntimeError, StoreTaskPayload, UpdateTaskPayload,
 };
 use libs::{
-    record::{Task, TaskState, UserRecord},
+    record::{SudoUserRecord, Task, TaskState, UserRecord},
     OperatingRedisKey, UserRecordRedisJsonPath,
 };
 
@@ -309,6 +309,51 @@ pub(super) async fn perform_update_task(
                 Err(RuntimeError::UnprocessableEntity {
                     name: "key".to_string(),
                 })
+            }
+        },
+        Err(err) => {
+            tracing::debug!("{:?}", err);
+            return Err(RuntimeError::RedisError(err));
+        }
+    }
+}
+
+pub(super) async fn perform_register_sudo_user(
+    payload: RegisterSudoUserPayload,
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<(), RuntimeError> {
+    let mut con = redis_pool.get().await.unwrap();
+    match con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.user_name,
+            UserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await
+    {
+        Ok(data_str) => match data_str {
+            Some(_data_str) => {
+                tracing::debug!("user already exists: {:?}", payload);
+
+                Err(RuntimeError::UnprocessableEntity {
+                    name: "user_name".to_string(),
+                })
+            }
+            None => {
+                tracing::debug!("registering sudo user: {:?}", payload);
+
+                let user_data = SudoUserRecord {
+                    id: 0,
+                    user_name: payload.user_name.clone(),
+                    published_tasks: vec![],
+                };
+                con.json_set(
+                    payload.user_name,
+                    UserRecordRedisJsonPath::Root.to_string().as_str(),
+                    &serde_json::json!(user_data),
+                )
+                .await?;
+
+                Ok(())
             }
         },
         Err(err) => {

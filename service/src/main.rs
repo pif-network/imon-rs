@@ -64,6 +64,7 @@ async fn axum() -> PShuttleAxum {
         .route("/v1/record/all", get(handlers::get_all_records))
         .route("/v1/task-log", post(handlers::get_task_log))
         .route("/v1/task/update", post(handlers::update_task_log))
+        .route("/v1/sudo/new", post(handlers::register_sudo_user))
         .layer(
             TraceLayer::new_for_http()
                 .on_request(|request: &Request<Body>, _span: &Span| {

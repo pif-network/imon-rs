@@ -10,10 +10,10 @@ use super::{
     construct_err_resp_invalid_incoming_json,
     logic::{
         perform_get_all_records, perform_get_user_task_log, perform_register_record,
-        perform_reset_task, perform_store_task, perform_update_task,
+        perform_register_sudo_user, perform_reset_task, perform_store_task, perform_update_task,
     },
-    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
-    UpdateTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, RegisterSudoUserPayload, ResetUserDataPayload,
+    RuntimeError, StoreTaskPayload, UpdateTaskPayload,
 };
 use crate::AppState;
 
@@ -109,5 +109,18 @@ pub async fn update_task_log(
     perform_update_task(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
         "status": "ok",
+    })))
+}
+
+pub async fn register_sudo_user(
+    State(app_state): State<AppState>,
+    ValidatedJson(payload): ValidatedJson<RegisterSudoUserPayload>,
+) -> Result<impl IntoResponse, RuntimeError> {
+    let user_data = perform_register_sudo_user(payload, app_state.redis_pool).await?;
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "data": {
+            "user_data": user_data,
+        }
     })))
 }
