@@ -116,11 +116,8 @@ pub async fn register_sudo_user(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterSudoUserPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    let user_data = perform_register_sudo_user(payload, app_state.redis_pool).await?;
+    perform_register_sudo_user(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
         "status": "ok",
-        "data": {
-            "user_data": user_data,
-        }
     })))
 }

@@ -20,17 +20,19 @@ pub struct Task {
     pub duration: i64,
 }
 
-impl Task {
-    pub fn default() -> Self {
+impl Default for Task {
+    fn default() -> Self {
         Task {
             name: String::new(),
-            state: TaskState::Begin,
+            state: TaskState::Idle,
             begin_time: chrono::offset::Local::now().naive_local(),
             end_time: chrono::offset::Local::now().naive_local(),
             duration: 0,
         }
     }
+}
 
+impl Task {
     pub fn placeholder(name: &str, state: TaskState) -> Self {
         Task {
             name: name.to_string(),
@@ -48,7 +50,7 @@ impl Task {
     }
 
     pub fn generate_break_task(latest_task: &Task) -> Self {
-        let duration = Task::calculate_duration(&latest_task);
+        let duration = Task::calculate_duration(latest_task);
         Task {
             name: latest_task.name.clone(),
             state: TaskState::Break,
@@ -75,7 +77,7 @@ impl Task {
                 ..*latest_task
             }
         } else if latest_task.state == TaskState::Back {
-            let duration = Task::calculate_duration(&latest_task) + latest_task.duration;
+            let duration = Task::calculate_duration(latest_task) + latest_task.duration;
             Task {
                 name: latest_task.name.clone(),
                 state: TaskState::End,
@@ -84,7 +86,7 @@ impl Task {
                 ..Task::default()
             }
         } else {
-            let duration = Task::calculate_duration(&latest_task);
+            let duration = Task::calculate_duration(latest_task);
             Task {
                 name: latest_task.name.clone(),
                 state: TaskState::End,
