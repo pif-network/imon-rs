@@ -5,7 +5,6 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use reqwest;
 use serde::{Deserialize, Serialize};
 
 use libs::record::{Task, TaskState};
@@ -34,9 +33,6 @@ struct AuthResponse {
     data: AuthResponseData,
 }
 
-// #[derive(Subcommand)]
-// enum
-
 #[derive(Subcommand)]
 enum Commands {
     /// What are you working on?
@@ -58,14 +54,10 @@ enum Commands {
 #[derive(Subcommand)]
 enum AuthCommand {
     /// Register yourself.
-    New {
-        user_name: String,
-    },
+    New { user_name: String },
     /// Login with `user_key`
     #[command(name = "login")]
-    LogIn {
-        user_key: String,
-    },
+    LogIn { user_key: String },
 }
 
 fn get_latest_task_local(file: &mut fs::File) -> Task {
@@ -77,9 +69,7 @@ fn get_latest_task_local(file: &mut fs::File) -> Task {
     }
 
     let last_line = content.lines().last().unwrap();
-    let task = serde_json::from_str::<Task>(last_line).unwrap();
-
-    task
+    serde_json::from_str::<Task>(last_line).unwrap()
 }
 
 fn retrieve_user_key(file: &mut fs::File) -> String {
@@ -91,9 +81,8 @@ fn retrieve_user_key(file: &mut fs::File) -> String {
 }
 
 // const SERVICE_URL: &'static str = "https://imon-service.shuttleapp.rs";
-const SERVICE_DOMAIN: &'static str = "http://localhost:8000";
+const SERVICE_DOMAIN: &str = "http://localhost:8000";
 
-// create an object to store service urls
 struct Endpoints {
     auth: String,
     post_task_payload: String,
@@ -117,7 +106,7 @@ fn main() {
         .unwrap();
     // Format: $user_name:$id
     let current_user_key = retrieve_user_key(&mut user_file);
-    let current_user_name = current_user_key.split(":").collect::<Vec<&str>>()[0];
+    let current_user_name = current_user_key.split(':').collect::<Vec<&str>>()[0];
 
     let path = PathBuf::from("/tmp/imon-tmp.txt");
     let mut file = fs::File::options()
@@ -414,16 +403,14 @@ fn main() {
                 }
             },
         }
+    } else if current_user_name.is_empty() {
+        println!("Please register yourself.");
     } else {
-        if current_user_name.is_empty() {
-            println!("Please register yourself.");
-        } else {
-            println!(
-                "{}. You are {}",
-                current_user_name.to_uppercase(),
-                current_user_name
-            );
-        }
+        println!(
+            "{}. You are {}",
+            current_user_name.to_uppercase(),
+            current_user_name
+        );
     }
 }
 
@@ -441,7 +428,5 @@ mod tests {
             .unwrap();
 
         let _parts_by_space = get_latest_task_local(&mut file);
-
-        // assert_eq!(parts_by_space.len(), 0);
     }
 }
