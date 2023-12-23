@@ -5,7 +5,6 @@ use bb8_redis::{
     redis::{AsyncCommands, JsonAsyncCommands},
     RedisConnectionManager,
 };
-// use redis::{Commands, JsonCommands};
 
 use super::{
     GetTaskLogPayload, RegisterRecordPayload, RegisterSudoUserPayload, ResetUserDataPayload,
@@ -42,31 +41,28 @@ pub(super) async fn perform_store_task(
                     user_data[0].task_history.pop();
                 };
 
-                let _: () = con
-                    .json_set(
-                        &payload.user_name,
-                        UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
-                        &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
-                    )
-                    .await?;
+                con.json_set(
+                    &payload.user_name,
+                    UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
+                    &serde_json::json!(&user_data.into_iter().next().unwrap().task_history),
+                )
+                .await?;
 
                 tracing::debug!("appending");
-                let _: () = con
-                    .json_arr_append(
-                        &payload.user_name,
-                        UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
-                        &serde_json::json!(&payload.task),
-                    )
-                    .await?;
+                con.json_arr_append(
+                    &payload.user_name,
+                    UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
+                    &serde_json::json!(&payload.task),
+                )
+                .await?;
 
                 tracing::debug!("setting current task");
-                let _: () = con
-                    .json_set(
-                        &payload.user_name,
-                        UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
-                        &serde_json::json!(&payload.task),
-                    )
-                    .await?;
+                con.json_set(
+                    &payload.user_name,
+                    UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
+                    &serde_json::json!(&payload.task),
+                )
+                .await?;
 
                 Ok(())
             }
@@ -79,13 +75,13 @@ pub(super) async fn perform_store_task(
         },
         Err(err) => {
             tracing::debug!("{:?}", err);
-            return Err(RuntimeError::RedisError(err));
+            Err(RuntimeError::RedisError(err))
         }
     }
 }
 
 fn generate_key(user_name: &str, id: i32) -> String {
-    let id_length = successors(Some(id), |&n| (n >= 10).then(|| n / 10)).count();
+    let id_length = successors(Some(id), |&n| (n >= 10).then_some(n / 10)).count();
     let filler_length = 4 - id_length;
     format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
 }
@@ -144,7 +140,7 @@ pub(super) async fn perform_reset_task(
     {
         Ok(data_str) => match data_str {
             Some(_data_str) => {
-                let vec_payload_key = payload.key.split(":").collect::<Vec<&str>>();
+                let vec_payload_key = payload.key.split(':').collect::<Vec<&str>>();
                 let user_data = UserRecord {
                     id: vec_payload_key[1].parse::<i32>().map_err(|_| {
                         RuntimeError::UnprocessableEntity {
@@ -173,7 +169,7 @@ pub(super) async fn perform_reset_task(
         },
         Err(err) => {
             tracing::debug!("{:?}", err);
-            return Err(RuntimeError::RedisError(err));
+            Err(RuntimeError::RedisError(err))
         }
     }
 }
@@ -209,7 +205,7 @@ pub(super) async fn perform_get_user_task_log(
         },
         Err(err) => {
             tracing::debug!("err: {:?}", err);
-            return Err(RuntimeError::RedisError(err));
+            Err(RuntimeError::RedisError(err))
         }
     }
 }
@@ -313,7 +309,7 @@ pub(super) async fn perform_update_task(
         },
         Err(err) => {
             tracing::debug!("{:?}", err);
-            return Err(RuntimeError::RedisError(err));
+            Err(RuntimeError::RedisError(err))
         }
     }
 }
@@ -358,7 +354,7 @@ pub(super) async fn perform_register_sudo_user(
         },
         Err(err) => {
             tracing::debug!("{:?}", err);
-            return Err(RuntimeError::RedisError(err));
+            Err(RuntimeError::RedisError(err))
         }
     }
 }
