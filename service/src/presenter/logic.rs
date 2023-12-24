@@ -96,9 +96,9 @@ pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<String, RuntimeError> {
-    let new_id;
-
     let mut con = redis_pool.get().await.unwrap();
+
+    let new_id;
     match con
         .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
         .await
@@ -325,58 +325,35 @@ pub(super) async fn perform_register_sudo_user(
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<(), RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
+
+    let id;
     match con
-        .json_get::<&std::string::String, &str, Option<String>>(
-            &payload.user_name,
-            UserRecordRedisJsonPath::Root.to_string().as_str(),
-        )
+        .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
         .await
     {
-        Ok(data_str) => match data_str {
-            Some(_data_str) => {
-                tracing::debug!("user already exists: {:?}", payload);
-
-                Err(RuntimeError::UnprocessableEntity {
-                    name: "user_name".to_string(),
-                })
-            }
-            None => {
-                tracing::debug!("registering sudo user: {:?}", payload);
-
-                let id;
-                match con
-                    .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
-                    .await
-                {
-                    Ok(current_id) => {
-                        id = current_id + 1;
-                        con.set("current_id", id).await?;
-                    }
-                    Err(_err) => {
-                        id = 0;
-                        con.set("current_id", 0).await?;
-                    }
-                }
-
-                let user_data = SudoUserRecord {
-                    id,
-                    user_name: payload.user_name.clone(),
-                    published_tasks: vec![],
-                };
-                let user_key = generate_key(UserType::SudoUser, &payload.user_name, id);
-                con.json_set(
-                    user_key,
-                    SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
-                    &serde_json::json!(user_data),
-                )
-                .await?;
-
-                Ok(())
-            }
-        },
-        Err(err) => {
-            tracing::debug!("{:?}", err);
-            Err(RuntimeError::RedisError(err))
+        Ok(current_id) => {
+            id = current_id + 1;
+            con.set("current_id", id).await?;
+        }
+        Err(_err) => {
+            id = 0;
+            con.set("current_id", 0).await?;
         }
     }
+
+    tracing::debug!("registering sudo user: {:?}", payload);
+    let user_data = SudoUserRecord {
+        id,
+        user_name: payload.user_name.clone(),
+        published_tasks: vec![],
+    };
+    let user_key = generate_key(UserType::SudoUser, &payload.user_name, id);
+    con.json_set(
+        user_key,
+        SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+        &serde_json::json!(user_data),
+    )
+    .await?;
+
+    Ok(())
 }
