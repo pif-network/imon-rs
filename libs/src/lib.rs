@@ -13,6 +13,14 @@ pub enum UserRecordRedisJsonPath {
 }
 
 #[derive(Debug, Display)]
+pub enum SudoUserRecordRedisJsonPath {
+    #[strum(serialize = "$")]
+    Root,
+    #[strum(serialize = "$.published_tasks")]
+    PublishedTasks,
+}
+
+#[derive(Debug, Display)]
 pub enum OperatingRedisKey {
     #[strum(serialize = "current_id")]
     CurrentId,

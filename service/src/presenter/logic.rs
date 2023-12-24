@@ -12,7 +12,7 @@ use super::{
 };
 use libs::{
     record::{SudoUserRecord, Task, TaskState, UserRecord},
-    OperatingRedisKey, UserRecordRedisJsonPath,
+    OperatingRedisKey, SudoUserRecordRedisJsonPath, UserRecordRedisJsonPath,
 };
 
 pub(super) async fn perform_store_task(
@@ -337,14 +337,30 @@ pub(super) async fn perform_register_sudo_user(
             None => {
                 tracing::debug!("registering sudo user: {:?}", payload);
 
+                let id;
+                match con
+                    .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
+                    .await
+                {
+                    Ok(current_id) => {
+                        id = current_id + 1;
+                        con.set("current_id", id).await?;
+                    }
+                    Err(_err) => {
+                        id = 0;
+                        con.set("current_id", 0).await?;
+                    }
+                }
+
                 let user_data = SudoUserRecord {
-                    id: 0,
+                    id,
                     user_name: payload.user_name.clone(),
                     published_tasks: vec![],
                 };
+                let user_key = generate_key(&payload.user_name, id);
                 con.json_set(
-                    payload.user_name,
-                    UserRecordRedisJsonPath::Root.to_string().as_str(),
+                    user_key,
+                    SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
                     &serde_json::json!(user_data),
                 )
                 .await?;
