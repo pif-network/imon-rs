@@ -51,6 +51,7 @@ pub enum SudoUserRpcEventType {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
 pub enum SudoUserRpcEventPayload {
     #[serde(rename = "register")]
     RegisterRecord(RegisterRecordPayload),
