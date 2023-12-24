@@ -25,3 +25,9 @@ pub enum OperatingRedisKey {
     #[strum(serialize = "current_id")]
     CurrentId,
 }
+
+#[derive(Debug, Display)]
+pub enum UserType {
+    User,
+    SudoUser,
+}

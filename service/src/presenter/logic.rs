@@ -12,7 +12,7 @@ use super::{
 };
 use libs::{
     record::{SudoUserRecord, Task, TaskState, UserRecord},
-    OperatingRedisKey, SudoUserRecordRedisJsonPath, UserRecordRedisJsonPath,
+    OperatingRedisKey, SudoUserRecordRedisJsonPath, UserRecordRedisJsonPath, UserType,
 };
 
 pub(super) async fn perform_store_task(
@@ -80,10 +80,16 @@ pub(super) async fn perform_store_task(
     }
 }
 
-fn generate_key(user_name: &str, id: i32) -> String {
+fn generate_key(user_type: UserType, user_name: &str, id: i32) -> String {
     let id_length = successors(Some(id), |&n| (n >= 10).then_some(n / 10)).count();
     let filler_length = 4 - id_length;
-    format!("{}:{}{}", user_name, "0".repeat(filler_length), id)
+    format!(
+        "{}:{}:{}{}",
+        user_type,
+        user_name,
+        "0".repeat(filler_length),
+        id
+    )
 }
 
 pub(super) async fn perform_register_record(
@@ -107,7 +113,7 @@ pub(super) async fn perform_register_record(
         }
     }
 
-    let user_key = generate_key(&payload.user_name, new_id);
+    let user_key = generate_key(UserType::User, &payload.user_name, new_id);
     let user_data = UserRecord {
         id: new_id,
         user_name: payload.user_name,
@@ -357,7 +363,7 @@ pub(super) async fn perform_register_sudo_user(
                     user_name: payload.user_name.clone(),
                     published_tasks: vec![],
                 };
-                let user_key = generate_key(&payload.user_name, id);
+                let user_key = generate_key(UserType::SudoUser, &payload.user_name, id);
                 con.json_set(
                     user_key,
                     SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
