@@ -15,7 +15,7 @@ use libs::{
     OperatingRedisKey, SudoUserRecordRedisJsonPath, UserRecordRedisJsonPath, UserType,
 };
 
-pub(super) async fn perform_store_task(
+pub(super) async fn perform_create_task(
     payload: StoreTaskPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<(), RuntimeError> {
@@ -138,7 +138,7 @@ pub(super) async fn perform_reset_task(
     Ok(user_data)
 }
 
-pub(super) async fn perform_get_user_task_log(
+pub(super) async fn perform_get_user_record(
     payload: GetTaskLogPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, RuntimeError> {
@@ -166,12 +166,12 @@ pub(super) async fn perform_get_user_task_log(
     Ok(user_data)
 }
 
-pub(super) async fn perform_get_all_records(
+pub(super) async fn perform_get_all_user_records(
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<Vec<UserRecord>, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
     let mut keys = con
-        .scan_match::<&str, std::string::String>("*:????")
+        .scan_match::<&str, std::string::String>("user:*:????")
         .await?;
 
     let mut user_records: Vec<UserRecord> = vec![];

@@ -9,8 +9,9 @@ use axum::{
 use super::{
     construct_err_resp_invalid_incoming_json,
     logic::{
-        perform_get_all_records, perform_get_user_task_log, perform_register_record,
-        perform_register_sudo_user, perform_reset_task, perform_store_task, perform_update_task,
+        perform_create_task, perform_get_all_user_records, perform_get_user_record,
+        perform_register_record, perform_register_sudo_user, perform_reset_task,
+        perform_update_task,
     },
     GetTaskLogPayload, RegisterRecordPayload, RegisterSudoUserPayload, ResetUserDataPayload,
     RuntimeError, StoreTaskPayload, UpdateTaskPayload,
@@ -40,11 +41,11 @@ where
     }
 }
 
-pub async fn store_task(
+pub async fn create_task(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<StoreTaskPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    perform_store_task(payload, app_state.redis_pool).await?;
+    perform_create_task(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
     "status": "ok",
     })))
@@ -76,11 +77,11 @@ pub async fn register_record(
     })))
 }
 
-pub async fn get_all_records(
+pub async fn get_all_user_records(
     State(app_state): State<AppState>,
     // ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    let user_records = perform_get_all_records(app_state.redis_pool).await?;
+    let user_records = perform_get_all_user_records(app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
         "status": "ok",
         "data": {
@@ -89,11 +90,11 @@ pub async fn get_all_records(
     })))
 }
 
-pub async fn get_task_log(
+pub async fn get_user_record(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    let task_log = perform_get_user_task_log(payload, app_state.redis_pool).await?;
+    let task_log = perform_get_user_record(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
         "status": "ok",
         "data": {

@@ -58,13 +58,13 @@ async fn axum() -> PShuttleAxum {
     let app_state = AppState { redis_pool: pool };
 
     let router = Router::new()
-        .route("/v1/store", post(handlers::store_task))
-        .route("/v1/reset", post(handlers::reset_task))
-        .route("/v1/record/new", post(handlers::register_record))
-        .route("/v1/record/all", get(handlers::get_all_records))
-        .route("/v1/task-log", post(handlers::get_task_log))
-        .route("/v1/task/update", post(handlers::update_task_log))
         .route("/v1/sudo/new", post(handlers::register_sudo_user))
+        .route("/v1/record/new", post(handlers::register_record))
+        .route("/v1/record", post(handlers::get_user_record))
+        .route("/v1/record/all", get(handlers::get_all_user_records))
+        .route("/v1/task/new", post(handlers::create_task))
+        .route("/v1/task/reset", post(handlers::reset_task))
+        .route("/v1/task/update", post(handlers::update_task_log))
         .layer(
             TraceLayer::new_for_http()
                 .on_request(|request: &Request<Body>, _span: &Span| {
