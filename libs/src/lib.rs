@@ -21,13 +21,15 @@ pub enum SudoUserRecordRedisJsonPath {
 }
 
 #[derive(Debug, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum OperatingRedisKey {
-    #[strum(serialize = "current_id")]
     CurrentId,
 }
 
 #[derive(Debug, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum UserType {
     User,
+    #[strum(serialize = "sudo")]
     SudoUser,
 }
