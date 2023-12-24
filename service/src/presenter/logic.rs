@@ -92,30 +92,27 @@ fn generate_key(user_type: UserType, user_name: &str, id: i32) -> String {
     )
 }
 
+async fn get_user_id(redis_pool: Pool<RedisConnectionManager>) -> i32 {
+    let mut con = redis_pool.get().await.unwrap();
+    match con
+        .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
+        .await
+    {
+        Ok(current_id) => current_id + 1,
+        Err(_err) => 0,
+    }
+}
+
 pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<String, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
-    let new_id;
-    match con
-        .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
-        .await
-    {
-        Ok(current_id) => {
-            new_id = current_id + 1;
-            con.set("current_id", new_id).await?;
-        }
-        Err(_err) => {
-            new_id = 0;
-            con.set("current_id", 0).await?;
-        }
-    }
-
-    let user_key = generate_key(UserType::User, &payload.user_name, new_id);
+    let id = get_user_id(redis_pool.clone()).await;
+    let user_key = generate_key(UserType::User, &payload.user_name, id);
     let user_data = UserRecord {
-        id: new_id,
+        id,
         user_name: payload.user_name,
         task_history: vec![],
         current_task: Task::placeholder("initialised", TaskState::Idle),
@@ -326,20 +323,9 @@ pub(super) async fn perform_register_sudo_user(
 ) -> Result<(), RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
-    let id;
-    match con
-        .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
-        .await
-    {
-        Ok(current_id) => {
-            id = current_id + 1;
-            con.set("current_id", id).await?;
-        }
-        Err(_err) => {
-            id = 0;
-            con.set("current_id", 0).await?;
-        }
-    }
+    let id = get_user_id(redis_pool.clone()).await;
+    con.set(OperatingRedisKey::CurrentId.to_string(), id)
+        .await?;
 
     tracing::debug!("registering sudo user: {:?}", payload);
     let user_data = SudoUserRecord {
