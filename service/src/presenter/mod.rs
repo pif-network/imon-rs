@@ -35,8 +35,51 @@ pub struct UpdateTaskPayload {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RegisterSudoUserPayload {
-    user_name: String,
+pub enum RpcPayloadType {
+    #[serde(rename = "user")]
+    User,
+    #[serde(rename = "sudo")]
+    Sudo,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum SudoUserRpcEventType {
+    #[serde(rename = "register")]
+    RegisterRecord,
+    #[serde(rename = "add_task")]
+    AddTask,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum SudoUserRpcEventPayload {
+    #[serde(rename = "register")]
+    RegisterRecord(RegisterRecordPayload),
+    #[serde(rename = "add_task")]
+    AddTask(StoreTaskPayload),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RpcPayloadMetadata {
+    of: RpcPayloadType,
+    event_type: SudoUserRpcEventType,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SudoUserRpcPayload {
+    metadata: RpcPayloadMetadata,
+    payload: SudoUserRpcEventPayload,
+}
+
+impl TryFrom<SudoUserRpcPayload> for RegisterRecordPayload {
+    type Error = RuntimeError;
+    fn try_from(payload: SudoUserRpcPayload) -> Result<Self, Self::Error> {
+        match payload.payload {
+            SudoUserRpcEventPayload::RegisterRecord(payload) => Ok(payload),
+            _ => Err(RuntimeError::UnprocessableEntity {
+                name: "event_type".to_string(),
+            }),
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

@@ -13,10 +13,13 @@ use super::{
         perform_register_record, perform_register_sudo_user, perform_reset_task,
         perform_update_task,
     },
-    GetTaskLogPayload, RegisterRecordPayload, RegisterSudoUserPayload, ResetUserDataPayload,
-    RuntimeError, StoreTaskPayload, UpdateTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
+    SudoUserRpcPayload, UpdateTaskPayload,
 };
-use crate::AppState;
+use crate::{
+    presenter::{RpcPayloadType, SudoUserRpcEventType},
+    AppState,
+};
 
 #[derive(Debug)]
 pub struct ValidatedJson<T>(pub T);
@@ -115,9 +118,30 @@ pub async fn update_task_log(
 
 pub async fn register_sudo_user(
     State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<RegisterSudoUserPayload>,
+    ValidatedJson(payload): ValidatedJson<SudoUserRpcPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    perform_register_sudo_user(payload, app_state.redis_pool).await?;
+    tracing::debug!("payload: {:?}", payload);
+    match payload.metadata.of {
+        RpcPayloadType::Sudo => match payload.metadata.event_type {
+            SudoUserRpcEventType::RegisterRecord => {
+                tracing::debug!("register record");
+                perform_register_sudo_user(
+                    RegisterRecordPayload::try_from(payload)?,
+                    app_state.redis_pool,
+                )
+                .await?;
+            }
+            SudoUserRpcEventType::AddTask => {
+                tracing::debug!("add task");
+                // perform_create_task(payload, app_state.redis_pool).await?;
+            }
+        },
+        RpcPayloadType::User => {
+            Err(RuntimeError::UnprocessableEntity {
+                name: "of".to_string(),
+            })?;
+        }
+    }
     Ok(Json(serde_json::json!({
         "status": "ok",
     })))

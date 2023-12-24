@@ -7,8 +7,8 @@ use bb8_redis::{
 };
 
 use super::{
-    GetTaskLogPayload, RegisterRecordPayload, RegisterSudoUserPayload, ResetUserDataPayload,
-    RuntimeError, StoreTaskPayload, UpdateTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
+    SudoUserRpcEventPayload, SudoUserRpcPayload, UpdateTaskPayload,
 };
 use libs::{
     record::{SudoUserRecord, Task, TaskState, UserRecord},
@@ -252,27 +252,27 @@ pub(super) async fn perform_update_task(
 }
 
 pub(super) async fn perform_register_sudo_user(
-    payload: RegisterSudoUserPayload,
+    payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<(), RuntimeError> {
-    let mut con = redis_pool.get().await.unwrap();
-
-    let id = get_user_id(redis_pool.clone()).await;
-    con.set(OperatingRedisKey::CurrentId.to_string(), id)
-        .await?;
-
-    let user_data = SudoUserRecord {
-        id,
-        user_name: payload.user_name.clone(),
-        published_tasks: vec![],
-    };
-    let user_key = generate_key(UserType::SudoUser, &payload.user_name, id);
-    con.json_set(
-        user_key,
-        SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
-        &serde_json::json!(user_data),
-    )
-    .await?;
+    // let mut con = redis_pool.get().await.unwrap();
+    //
+    // let id = get_user_id(redis_pool.clone()).await;
+    // con.set(OperatingRedisKey::CurrentId.to_string(), id)
+    //     .await?;
+    //
+    // let user_data = SudoUserRecord {
+    //     id,
+    //     user_name: payload.user_name.clone(),
+    //     published_tasks: vec![],
+    // };
+    // let user_key = generate_key(UserType::SudoUser, &payload.user_name, id);
+    // con.json_set(
+    //     user_key,
+    //     SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+    //     &serde_json::json!(user_data),
+    // )
+    // .await?;
 
     Ok(())
 }

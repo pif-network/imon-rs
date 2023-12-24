@@ -58,7 +58,7 @@ async fn axum() -> PShuttleAxum {
     let app_state = AppState { redis_pool: pool };
 
     let router = Router::new()
-        .route("/v1/sudo/new", post(handlers::register_sudo_user))
+        .route("/v1/rpc/sudo", post(handlers::register_sudo_user))
         .route("/v1/record/new", post(handlers::register_record))
         .route("/v1/record", post(handlers::get_user_record))
         .route("/v1/record/all", get(handlers::get_all_user_records))
