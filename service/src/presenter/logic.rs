@@ -177,8 +177,7 @@ pub(super) async fn perform_get_all_records(
     let mut user_records: Vec<UserRecord> = vec![];
 
     while let Some(key) = keys.next_item().await {
-        let new_pool = redis_pool.clone();
-        let mut new_con = new_pool.get().await.unwrap();
+        let mut new_con = redis_pool.get().await.unwrap();
 
         let Some(data_str) = new_con
             .json_get::<&std::string::String, &str, Option<String>>(
