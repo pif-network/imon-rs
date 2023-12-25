@@ -48,6 +48,8 @@ pub enum SudoUserRpcEventType {
     RegisterRecord,
     #[serde(rename = "add_task")]
     AddTask,
+    #[serde(rename = "reset_record")]
+    ResetRecord,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,6 +59,8 @@ pub enum SudoUserRpcEventPayload {
     RegisterRecord(RegisterRecordPayload),
     #[serde(rename = "add_task")]
     AddTask(StoreTaskPayload),
+    #[serde(rename = "reset_record")]
+    ResetRecord(ResetUserDataPayload),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

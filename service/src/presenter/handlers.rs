@@ -116,7 +116,7 @@ pub async fn update_task_log(
     })))
 }
 
-pub async fn register_sudo_user(
+pub async fn sudo_user_rpc(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<SudoUserRpcPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
@@ -133,6 +133,10 @@ pub async fn register_sudo_user(
             }
             SudoUserRpcEventType::AddTask => {
                 tracing::debug!("add task");
+                // perform_create_task(payload, app_state.redis_pool).await?;
+            }
+            SudoUserRpcEventType::ResetRecord => {
+                tracing::debug!("reset record");
                 // perform_create_task(payload, app_state.redis_pool).await?;
             }
         },
