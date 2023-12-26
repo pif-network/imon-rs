@@ -123,8 +123,15 @@ impl FromRedisValue for UserRecord {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct STask {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct SudoUserRecord {
     pub id: i32,
     pub user_name: String,
-    pub published_tasks: Vec<Task>,
+    pub published_tasks: Vec<STask>,
 }
