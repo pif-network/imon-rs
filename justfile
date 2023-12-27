@@ -1,6 +1,7 @@
 alias c := cli
 alias s := service
 alias l := libs
+alias i := impl
 
 
 cli scmd *args:
@@ -25,3 +26,6 @@ service scmd *args:
 
 libs scmd *args:
 	cargo {{scmd}} -p libs {{args}}
+
+impl scmd *args:
+	cargo {{scmd}} -p imon-impl {{args}}

@@ -126,7 +126,7 @@ pub async fn sudo_user_rpc(
             SudoUserRpcEventType::RegisterRecord => {
                 tracing::debug!("register record");
                 perform_register_sudo_user(
-                    RegisterRecordPayload::try_from(payload)?,
+                    RegisterRecordPayload::try_from(payload.payload)?,
                     app_state.redis_pool,
                 )
                 .await?;

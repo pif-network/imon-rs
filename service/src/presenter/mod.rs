@@ -2,6 +2,7 @@ use axum::{extract::rejection::JsonRejection, http::StatusCode, response::IntoRe
 use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
+use imon_impl::TryFromPayload;
 use libs::record::{Task, TaskState};
 
 pub mod handlers;
@@ -52,7 +53,7 @@ pub enum SudoUserRpcEventType {
     ResetRecord,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, TryFromPayload)]
 #[serde(untagged)]
 pub enum SudoUserRpcEventPayload {
     #[serde(rename = "register")]
@@ -73,18 +74,6 @@ pub struct RpcPayloadMetadata {
 pub struct SudoUserRpcPayload {
     metadata: RpcPayloadMetadata,
     payload: SudoUserRpcEventPayload,
-}
-
-impl TryFrom<SudoUserRpcPayload> for RegisterRecordPayload {
-    type Error = RuntimeError;
-    fn try_from(payload: SudoUserRpcPayload) -> Result<Self, Self::Error> {
-        match payload.payload {
-            SudoUserRpcEventPayload::RegisterRecord(payload) => Ok(payload),
-            _ => Err(RuntimeError::UnprocessableEntity {
-                name: "event_type".to_string(),
-            }),
-        }
-    }
 }
 
 #[derive(thiserror::Error, Debug)]
