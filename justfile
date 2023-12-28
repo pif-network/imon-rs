@@ -28,4 +28,4 @@ libs scmd *args:
 	cargo {{scmd}} -p libs {{args}}
 
 impl scmd *args:
-	cargo {{scmd}} -p imon-impl {{args}}
+	cargo {{scmd}} -p imon-derive {{args}}

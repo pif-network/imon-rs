@@ -1040,7 +1040,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "imon-impl"
+name = "imon-derive"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -1994,7 +1994,7 @@ dependencies = [
  "axum 0.7.2",
  "bb8-redis",
  "chrono",
- "imon-impl",
+ "imon-derive",
  "libs",
  "redis 0.24.0",
  "serde",

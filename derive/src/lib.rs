@@ -4,7 +4,6 @@ extern crate syn;
 use proc_macro::TokenStream;
 mod macros;
 
-#[allow(unused_variables)]
 #[proc_macro_derive(TryFromPayload)]
 pub fn derive_try_from_payload(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);

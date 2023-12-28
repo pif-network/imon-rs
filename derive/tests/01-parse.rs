@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use imon_impl::TryFromPayload;
+    use imon_derive::TryFromPayload;
 
     #[derive(Debug)]
     pub enum RuntimeError {

@@ -6,7 +6,7 @@ resolver = "2"
 
 [dependencies]
 libs = { path = "../libs" }
-imon-impl = { path = "../impl" }
+imon-derive = { path = "../derive" }
 
 axum = { version = "0.7.0", features = ["macros"] }
 chrono = "0.4.30"

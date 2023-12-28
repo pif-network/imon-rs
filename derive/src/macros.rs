@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
+/// Implements `TryFrom` for an enum of payload.
 pub fn impl_try_from_for_payload(input: syn::DeriveInput) -> TokenStream {
     let name = input.ident;
     let implementations = match input.data {
