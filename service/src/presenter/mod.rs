@@ -3,7 +3,7 @@ use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
 use imon_impl::TryFromPayload;
-use libs::record::{Task, TaskState};
+use libs::record::{STask, Task, TaskState};
 
 pub mod handlers;
 pub mod logic;
@@ -36,6 +36,12 @@ pub struct UpdateTaskPayload {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct StoreSTaskPayload {
+    key: String,
+    task: STask,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RpcPayloadType {
     #[serde(rename = "user")]
     User,
@@ -59,7 +65,7 @@ pub enum SudoUserRpcEventPayload {
     #[serde(rename = "register")]
     RegisterRecord(RegisterRecordPayload),
     #[serde(rename = "add_task")]
-    AddTask(StoreTaskPayload),
+    AddTask(StoreSTaskPayload),
     #[serde(rename = "reset_record")]
     ResetRecord(ResetUserDataPayload),
 }
@@ -71,7 +77,7 @@ pub struct RpcPayloadMetadata {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SudoUserRpcPayload {
+pub struct SudoUserRpcRequest {
     metadata: RpcPayloadMetadata,
     payload: SudoUserRpcEventPayload,
 }

@@ -7,8 +7,8 @@ use bb8_redis::{
 };
 
 use super::{
-    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
-    UpdateTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError,
+    StoreSTaskPayload, StoreTaskPayload, UpdateTaskPayload,
 };
 use libs::{
     record::{SudoUserRecord, Task, TaskState, UserRecord},
@@ -251,7 +251,7 @@ pub(super) async fn perform_update_task(
     }
 }
 
-pub(super) async fn perform_register_sudo_user(
+pub(super) async fn perform_sudo_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<(), RuntimeError> {
@@ -271,6 +271,38 @@ pub(super) async fn perform_register_sudo_user(
         user_key,
         SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
         &serde_json::json!(user_data),
+    )
+    .await?;
+
+    Ok(())
+}
+
+pub(super) async fn perform_sudo_create_task(
+    payload: StoreSTaskPayload,
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<(), RuntimeError> {
+    let mut con = redis_pool.get().await.unwrap();
+
+    let Some(_data_str) = con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.key,
+            SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await?
+    else {
+        tracing::debug!("non-exist record: {:?}", payload);
+        return Err(RuntimeError::UnprocessableEntity {
+            name: "key".to_string(),
+        });
+    };
+
+    tracing::debug!("appending");
+    con.json_arr_append(
+        &payload.key,
+        SudoUserRecordRedisJsonPath::PublishedTasks
+            .to_string()
+            .as_str(),
+        &serde_json::json!(&payload.task),
     )
     .await?;
 

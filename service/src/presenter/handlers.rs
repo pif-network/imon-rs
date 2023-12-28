@@ -10,14 +10,16 @@ use super::{
     construct_err_resp_invalid_incoming_json,
     logic::{
         perform_create_task, perform_get_all_user_records, perform_get_user_record,
-        perform_register_record, perform_register_sudo_user, perform_reset_task,
+        perform_register_record, perform_reset_task, perform_sudo_register_record,
         perform_update_task,
     },
     GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
-    SudoUserRpcPayload, UpdateTaskPayload,
+    SudoUserRpcRequest, UpdateTaskPayload,
 };
 use crate::{
-    presenter::{RpcPayloadType, SudoUserRpcEventType},
+    presenter::{
+        logic::perform_sudo_create_task, RpcPayloadType, StoreSTaskPayload, SudoUserRpcEventType,
+    },
     AppState,
 };
 
@@ -118,22 +120,26 @@ pub async fn update_task_log(
 
 pub async fn sudo_user_rpc(
     State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<SudoUserRpcPayload>,
+    ValidatedJson(request): ValidatedJson<SudoUserRpcRequest>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    tracing::debug!("payload: {:?}", payload);
-    match payload.metadata.of {
-        RpcPayloadType::Sudo => match payload.metadata.event_type {
+    tracing::debug!("request: {:?}", request);
+    match request.metadata.of {
+        RpcPayloadType::Sudo => match request.metadata.event_type {
             SudoUserRpcEventType::RegisterRecord => {
                 tracing::debug!("register record");
-                perform_register_sudo_user(
-                    RegisterRecordPayload::try_from(payload.payload)?,
+                perform_sudo_register_record(
+                    RegisterRecordPayload::try_from(request.payload)?,
                     app_state.redis_pool,
                 )
                 .await?;
             }
             SudoUserRpcEventType::AddTask => {
                 tracing::debug!("add task");
-                // perform_create_task(payload, app_state.redis_pool).await?;
+                perform_sudo_create_task(
+                    StoreSTaskPayload::try_from(request.payload)?,
+                    app_state.redis_pool,
+                )
+                .await?;
             }
             SudoUserRpcEventType::ResetRecord => {
                 tracing::debug!("reset record");
