@@ -8,7 +8,7 @@ pub fn impl_try_from_for_payload(input: syn::DeriveInput) -> TokenStream {
         syn::Data::Enum(ref e) => e
             .variants
             .iter()
-            .map(|v| {
+            .flat_map(|v| {
                 let variant_name = &v.ident;
                 println!("variant_name: {:?}", variant_name);
 
@@ -50,7 +50,6 @@ pub fn impl_try_from_for_payload(input: syn::DeriveInput) -> TokenStream {
                     })
                     .collect::<Vec<proc_macro2::TokenStream>>()
             })
-            .flatten()
             .collect::<Vec<proc_macro2::TokenStream>>(),
         _ => panic!("Only enums are supported"),
     };
@@ -59,7 +58,7 @@ pub fn impl_try_from_for_payload(input: syn::DeriveInput) -> TokenStream {
         #(#implementations)*
     };
 
-    output.into()
+    output
 }
 
 // macro_rules! impl_try_from {
