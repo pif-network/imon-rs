@@ -20,7 +20,7 @@ pub struct RegisterRecordPayload {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ResetUserDataPayload {
+pub struct ResetRecordPayload {
     key: String,
 }
 
@@ -67,7 +67,7 @@ pub enum SudoUserRpcEventPayload {
     #[serde(rename = "add_task")]
     AddTask(StoreSTaskPayload),
     #[serde(rename = "reset_record")]
-    ResetRecord(ResetUserDataPayload),
+    ResetRecord(ResetRecordPayload),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

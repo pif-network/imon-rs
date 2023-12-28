@@ -7,8 +7,8 @@ use bb8_redis::{
 };
 
 use super::{
-    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError,
-    StoreSTaskPayload, StoreTaskPayload, UpdateTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError, StoreSTaskPayload,
+    StoreTaskPayload, UpdateTaskPayload,
 };
 use libs::{
     record::{SudoUserRecord, Task, TaskState, UserRecord},
@@ -98,7 +98,7 @@ pub(super) async fn perform_register_record(
 }
 
 pub(super) async fn perform_reset_task(
-    payload: ResetUserDataPayload,
+    payload: ResetRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
@@ -307,6 +307,49 @@ pub(super) async fn perform_sudo_create_task(
     .await?;
 
     Ok(())
+}
+
+pub(super) async fn perform_sudo_reset_record(
+    payload: ResetRecordPayload,
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<SudoUserRecord, RuntimeError> {
+    let mut con = redis_pool.get().await.unwrap();
+
+    let key_exists = con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.key,
+            SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await?
+        .is_some();
+    if !key_exists {
+        tracing::debug!("non-exist record: {:?}", payload);
+        return Err(RuntimeError::UnprocessableEntity {
+            name: "key".to_string(),
+        });
+    }
+
+    let vec_payload_key = payload.key.split(':').collect::<Vec<&str>>();
+    let user_data = SudoUserRecord {
+        id: vec_payload_key[2]
+            .parse::<i32>()
+            // NOTE: Although it may appears that this check is obsolete,
+            // it is still necessary to ensure that uses would only get
+            // responses from correct key.
+            .map_err(|_| RuntimeError::UnprocessableEntity {
+                name: "key".to_string(),
+            })?,
+        user_name: vec_payload_key[1].to_string(),
+        published_tasks: vec![],
+    };
+    con.json_set(
+        &payload.key,
+        SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+        &serde_json::json!(user_data),
+    )
+    .await?;
+
+    Ok(user_data)
 }
 
 fn generate_key(user_type: UserType, user_name: &str, id: i32) -> String {

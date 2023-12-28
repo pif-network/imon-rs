@@ -13,12 +13,13 @@ use super::{
         perform_register_record, perform_reset_task, perform_sudo_register_record,
         perform_update_task,
     },
-    GetTaskLogPayload, RegisterRecordPayload, ResetUserDataPayload, RuntimeError, StoreTaskPayload,
+    GetTaskLogPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError, StoreTaskPayload,
     SudoUserRpcRequest, UpdateTaskPayload,
 };
 use crate::{
     presenter::{
-        logic::perform_sudo_create_task, RpcPayloadType, StoreSTaskPayload, SudoUserRpcEventType,
+        logic::{perform_sudo_create_task, perform_sudo_reset_record},
+        RpcPayloadType, StoreSTaskPayload, SudoUserRpcEventType,
     },
     AppState,
 };
@@ -58,7 +59,7 @@ pub async fn create_task(
 
 pub async fn reset_task(
     State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<ResetUserDataPayload>,
+    ValidatedJson(payload): ValidatedJson<ResetRecordPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
     let user_data = perform_reset_task(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
@@ -143,7 +144,11 @@ pub async fn sudo_user_rpc(
             }
             SudoUserRpcEventType::ResetRecord => {
                 tracing::debug!("reset record");
-                // perform_create_task(payload, app_state.redis_pool).await?;
+                perform_sudo_reset_record(
+                    ResetRecordPayload::try_from(request.payload)?,
+                    app_state.redis_pool,
+                )
+                .await?;
             }
         },
         RpcPayloadType::User => {
