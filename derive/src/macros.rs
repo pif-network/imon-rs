@@ -77,3 +77,29 @@ pub fn impl_try_from_for_payload(input: syn::DeriveInput) -> TokenStream {
 //         }
 //     };
 // }
+
+// write test for impl_try_from_for_payload
+#[test]
+fn test_should_generate_impl_try_from() {
+    let input = syn::parse_quote! {
+        enum SudoUserRpcEventPayload {
+            RegisterRecord(RegisterRecordPayload),
+        }
+    };
+    let output = impl_try_from_for_payload(input);
+    let expected = quote! {
+        impl std::convert::TryFrom<SudoUserRpcEventPayload> for RegisterRecordPayload {
+            type Error = RuntimeError;
+
+            fn try_from(payload: SudoUserRpcEventPayload) -> Result<Self, Self::Error> {
+                match payload {
+                    SudoUserRpcEventPayload::RegisterRecord(payload) => Ok(payload),
+                    _ => Err(RuntimeError::UnprocessableEntity {
+                        name: "payload".to_string(),
+                    }),
+                }
+            }
+        }
+    };
+    assert_eq!(output.to_string(), expected.to_string());
+}
