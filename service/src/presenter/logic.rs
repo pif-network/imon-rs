@@ -7,8 +7,8 @@ use bb8_redis::{
 };
 
 use super::{
-    GetTaskLogPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError, StoreSTaskPayload,
-    StoreTaskPayload, UpdateTaskPayload,
+    GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError,
+    StoreSTaskPayload, StoreTaskPayload, UpdateTaskPayload,
 };
 use libs::{
     record::{SudoUserRecord, Task, TaskState, UserRecord},
@@ -97,7 +97,7 @@ pub(super) async fn perform_register_record(
     Ok(user_key)
 }
 
-pub(super) async fn perform_reset_task(
+pub(super) async fn perform_reset_record(
     payload: ResetRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, RuntimeError> {
@@ -139,7 +139,7 @@ pub(super) async fn perform_reset_task(
 }
 
 pub(super) async fn perform_get_user_record(
-    payload: GetTaskLogPayload,
+    payload: GetSingleRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<UserRecord, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
@@ -348,6 +348,35 @@ pub(super) async fn perform_sudo_reset_record(
         &serde_json::json!(user_data),
     )
     .await?;
+
+    Ok(user_data)
+}
+
+pub(super) async fn perform_sudo_get_record(
+    payload: GetSingleRecordPayload,
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<SudoUserRecord, RuntimeError> {
+    let mut con = redis_pool.get().await.unwrap();
+
+    let Some(data_str) = con
+        .json_get::<&std::string::String, &str, Option<String>>(
+            &payload.key,
+            SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await?
+    else {
+        tracing::debug!("non-exist record: {:?}", payload);
+        return Err(RuntimeError::UnprocessableEntity {
+            name: "key".to_string(),
+        });
+    };
+
+    let user_data_vec = serde_json::from_str::<Vec<SudoUserRecord>>(&data_str)?;
+    let user_data = user_data_vec.into_iter().next().unwrap();
+    // TODO: Sort the tasks by creation time.
+    // user_data
+    //     .published_tasks
+    //     .sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
     Ok(user_data)
 }

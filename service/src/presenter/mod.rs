@@ -25,7 +25,7 @@ pub struct ResetRecordPayload {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct GetTaskLogPayload {
+pub struct GetSingleRecordPayload {
     key: String,
 }
 
@@ -57,6 +57,8 @@ pub enum SudoUserRpcEventType {
     AddTask,
     #[serde(rename = "reset_record")]
     ResetRecord,
+    #[serde(rename = "get_single_record")]
+    GetSingleRecord,
 }
 
 #[derive(Serialize, Deserialize, Debug, TryFromPayload)]
@@ -68,6 +70,8 @@ pub enum SudoUserRpcEventPayload {
     AddTask(StoreSTaskPayload),
     #[serde(rename = "reset_record")]
     ResetRecord(ResetRecordPayload),
+    #[serde(rename = "get_single_record")]
+    GetSingleRecord(GetSingleRecordPayload),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

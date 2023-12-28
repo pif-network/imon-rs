@@ -10,15 +10,15 @@ use super::{
     construct_err_resp_invalid_incoming_json,
     logic::{
         perform_create_task, perform_get_all_user_records, perform_get_user_record,
-        perform_register_record, perform_reset_task, perform_sudo_register_record,
+        perform_register_record, perform_reset_record, perform_sudo_register_record,
         perform_update_task,
     },
-    GetTaskLogPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError, StoreTaskPayload,
-    SudoUserRpcRequest, UpdateTaskPayload,
+    GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError,
+    StoreTaskPayload, SudoUserRpcRequest, UpdateTaskPayload,
 };
 use crate::{
     presenter::{
-        logic::{perform_sudo_create_task, perform_sudo_reset_record},
+        logic::{perform_sudo_create_task, perform_sudo_get_record, perform_sudo_reset_record},
         RpcPayloadType, StoreSTaskPayload, SudoUserRpcEventType,
     },
     AppState,
@@ -61,7 +61,7 @@ pub async fn reset_task(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<ResetRecordPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
-    let user_data = perform_reset_task(payload, app_state.redis_pool).await?;
+    let user_data = perform_reset_record(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
         "status": "ok",
         "data": {
@@ -98,7 +98,7 @@ pub async fn get_all_user_records(
 
 pub async fn get_user_record(
     State(app_state): State<AppState>,
-    ValidatedJson(payload): ValidatedJson<GetTaskLogPayload>,
+    ValidatedJson(payload): ValidatedJson<GetSingleRecordPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
     let task_log = perform_get_user_record(payload, app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({
@@ -149,6 +149,17 @@ pub async fn sudo_user_rpc(
                     app_state.redis_pool,
                 )
                 .await?;
+            }
+            SudoUserRpcEventType::GetSingleRecord => {
+                tracing::debug!("get single record");
+                perform_sudo_get_record(
+                    GetSingleRecordPayload::try_from(request.payload)?,
+                    app_state.redis_pool,
+                )
+                .await?;
+                Err(RuntimeError::UnprocessableEntity {
+                    name: "event_type".to_string(),
+                })?;
             }
         },
         RpcPayloadType::User => {
