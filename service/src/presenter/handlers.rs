@@ -127,7 +127,6 @@ pub async fn sudo_user_rpc(
     match request.metadata.of {
         RpcPayloadType::Sudo => match request.metadata.event_type {
             SudoUserRpcEventType::RegisterRecord => {
-                tracing::debug!("register record");
                 perform_sudo_register_record(
                     RegisterRecordPayload::try_from(request.payload)?,
                     app_state.redis_pool,
@@ -135,7 +134,6 @@ pub async fn sudo_user_rpc(
                 .await?;
             }
             SudoUserRpcEventType::AddTask => {
-                tracing::debug!("add task");
                 perform_sudo_create_task(
                     StoreSTaskPayload::try_from(request.payload)?,
                     app_state.redis_pool,
@@ -143,7 +141,6 @@ pub async fn sudo_user_rpc(
                 .await?;
             }
             SudoUserRpcEventType::ResetRecord => {
-                tracing::debug!("reset record");
                 perform_sudo_reset_record(
                     ResetRecordPayload::try_from(request.payload)?,
                     app_state.redis_pool,
@@ -151,7 +148,6 @@ pub async fn sudo_user_rpc(
                 .await?;
             }
             SudoUserRpcEventType::GetSingleRecord => {
-                tracing::debug!("get single record");
                 perform_sudo_get_record(
                     GetSingleRecordPayload::try_from(request.payload)?,
                     app_state.redis_pool,

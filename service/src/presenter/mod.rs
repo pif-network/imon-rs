@@ -36,9 +36,15 @@ pub struct UpdateTaskPayload {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct STaskIn {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct StoreSTaskPayload {
     key: String,
-    task: STask,
+    task: STaskIn,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
