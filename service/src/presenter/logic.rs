@@ -11,10 +11,9 @@ use super::{
     StoreSTaskPayload, StoreTaskPayload, UpdateTaskPayload,
 };
 use libs::{
-    record::{SudoUserRecord, Task, TaskState, UserRecord},
+    record::{STask, SudoUserRecord, Task, TaskState, UserRecord},
     OperatingRedisKey, SudoUserRecordRedisJsonPath, UserRecordRedisJsonPath, UserType,
 };
-use libs::record::STask;
 
 pub(super) async fn perform_create_task(
     payload: StoreTaskPayload,
@@ -298,9 +297,9 @@ pub(super) async fn perform_sudo_create_task(
     };
 
     let new_task = STask {
-        id: 0,
         name: payload.task.name,
         description: payload.task.description,
+        created_at: chrono::offset::Local::now().naive_local(),
     };
 
     tracing::debug!("appending");

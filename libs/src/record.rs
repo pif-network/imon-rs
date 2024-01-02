@@ -124,9 +124,9 @@ impl FromRedisValue for UserRecord {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct STask {
-    pub id: i32,
     pub name: String,
     pub description: String,
+    pub created_at: NaiveDateTime,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
