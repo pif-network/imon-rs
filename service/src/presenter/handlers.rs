@@ -128,24 +128,32 @@ pub async fn sudo_user_rpc(
         RpcPayloadType::Sudo => match request.payload {
             SudoUserRpcEventPayload::RegisterRecord(payload) => {
                 perform_sudo_register_record(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
             }
             SudoUserRpcEventPayload::AddTask(payload) => {
                 perform_sudo_create_task(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
             }
             SudoUserRpcEventPayload::ResetRecord(payload) => {
                 perform_sudo_reset_record(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
             }
             SudoUserRpcEventPayload::GetSingleRecord(payload) => {
-                perform_sudo_get_record(payload, app_state.redis_pool).await?;
+                let record = perform_sudo_get_record(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                    "data": record
+                })))
             }
         },
-        RpcPayloadType::User => {
-            Err(RuntimeError::UnprocessableEntity {
-                name: "of".to_string(),
-            })?;
-        }
+        RpcPayloadType::User => Err(RuntimeError::UnprocessableEntity {
+            name: "of".to_string(),
+        })?,
     }
-    Ok(Json(serde_json::json!({
-        "status": "ok",
-    })))
 }
