@@ -378,11 +378,10 @@ pub(super) async fn perform_sudo_get_record(
     };
 
     let user_data_vec = serde_json::from_str::<Vec<SudoUserRecord>>(&data_str)?;
-    let user_data = user_data_vec.into_iter().next().unwrap();
-    // TODO: Sort the tasks by creation time.
-    // user_data
-    //     .published_tasks
-    //     .sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    let mut user_data = user_data_vec.into_iter().next().unwrap();
+    user_data
+        .published_tasks
+        .sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
     Ok(user_data)
 }
