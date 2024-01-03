@@ -68,7 +68,7 @@ pub enum SudoUserRpcEventType {
 }
 
 #[derive(Serialize, Deserialize, Debug, TryFromPayload)]
-#[serde(untagged)]
+#[serde(tag = "event_type")]
 pub enum SudoUserRpcEventPayload {
     #[serde(rename = "register")]
     RegisterRecord(RegisterRecordPayload),
@@ -83,7 +83,6 @@ pub enum SudoUserRpcEventPayload {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcPayloadMetadata {
     of: RpcPayloadType,
-    event_type: SudoUserRpcEventType,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

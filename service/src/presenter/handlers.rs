@@ -19,7 +19,7 @@ use super::{
 use crate::{
     presenter::{
         logic::{perform_sudo_create_task, perform_sudo_get_record, perform_sudo_reset_record},
-        RpcPayloadType, StoreSTaskPayload, SudoUserRpcEventType,
+        RpcPayloadType, SudoUserRpcEventPayload,
     },
     AppState,
 };
@@ -125,37 +125,18 @@ pub async fn sudo_user_rpc(
 ) -> Result<impl IntoResponse, RuntimeError> {
     tracing::debug!("request: {:?}", request);
     match request.metadata.of {
-        RpcPayloadType::Sudo => match request.metadata.event_type {
-            SudoUserRpcEventType::RegisterRecord => {
-                perform_sudo_register_record(
-                    RegisterRecordPayload::try_from(request.payload)?,
-                    app_state.redis_pool,
-                )
-                .await?;
+        RpcPayloadType::Sudo => match request.payload {
+            SudoUserRpcEventPayload::RegisterRecord(payload) => {
+                perform_sudo_register_record(payload, app_state.redis_pool).await?;
             }
-            SudoUserRpcEventType::AddTask => {
-                perform_sudo_create_task(
-                    StoreSTaskPayload::try_from(request.payload)?,
-                    app_state.redis_pool,
-                )
-                .await?;
+            SudoUserRpcEventPayload::AddTask(payload) => {
+                perform_sudo_create_task(payload, app_state.redis_pool).await?;
             }
-            SudoUserRpcEventType::ResetRecord => {
-                perform_sudo_reset_record(
-                    ResetRecordPayload::try_from(request.payload)?,
-                    app_state.redis_pool,
-                )
-                .await?;
+            SudoUserRpcEventPayload::ResetRecord(payload) => {
+                perform_sudo_reset_record(payload, app_state.redis_pool).await?;
             }
-            SudoUserRpcEventType::GetSingleRecord => {
-                perform_sudo_get_record(
-                    GetSingleRecordPayload::try_from(request.payload)?,
-                    app_state.redis_pool,
-                )
-                .await?;
-                Err(RuntimeError::UnprocessableEntity {
-                    name: "event_type".to_string(),
-                })?;
+            SudoUserRpcEventPayload::GetSingleRecord(payload) => {
+                perform_sudo_get_record(payload, app_state.redis_pool).await?;
             }
         },
         RpcPayloadType::User => {
