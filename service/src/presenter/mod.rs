@@ -3,7 +3,7 @@ use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
 use imon_derive::TryFromPayload;
-use libs::record::{STask, Task, TaskState};
+use libs::record::{Task, TaskState};
 
 pub mod handlers;
 pub mod logic;
@@ -146,9 +146,13 @@ fn construct_err_payload_redis(err: redis::RedisError) -> serde_json::Value {
 }
 
 fn construct_err_payload_de_upstream_data(err: serde_json::Error) -> serde_json::Value {
+    tracing::error!(
+        "upstream data malformed: it has been modified, and now is in incorrect format"
+    );
+    tracing::debug!("upstream de err: {:?}", err);
     serde_json::json!({
         "status": "error",
-        "message": err.to_string(),
+        "message": "Internal Error - Please report an issue if you encounter this."
     })
 }
 
