@@ -1,6 +1,23 @@
+use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
 pub mod record;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OperatingInfo {
+    pub latest_record_id: i32,
+    pub latest_sudo_record_id: i32,
+}
+
+#[derive(Debug, Display)]
+pub enum OperatingInfoRedisJsonPath {
+    #[strum(serialize = "$")]
+    Root,
+    #[strum(serialize = "$.latest_record_id")]
+    LatestRecordId,
+    #[strum(serialize = "$.latest_sudo_record_id")]
+    LatestSudoRecordId,
+}
 
 #[derive(Debug, Display)]
 pub enum UserRecordRedisJsonPath {
@@ -24,6 +41,7 @@ pub enum SudoUserRecordRedisJsonPath {
 #[strum(serialize_all = "snake_case")]
 pub enum OperatingRedisKey {
     CurrentId,
+    OperatingInfo,
 }
 
 #[derive(Debug, Display)]

@@ -12,7 +12,8 @@ use super::{
 };
 use libs::{
     record::{STask, SudoUserRecord, Task, TaskState, UserRecord},
-    OperatingRedisKey, SudoUserRecordRedisJsonPath, UserRecordRedisJsonPath, UserType,
+    OperatingInfoRedisJsonPath, OperatingRedisKey, SudoUserRecordRedisJsonPath,
+    UserRecordRedisJsonPath, UserType,
 };
 
 pub(super) async fn perform_create_task(
@@ -76,7 +77,7 @@ pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<String, RuntimeError> {
-    let id = get_user_id(redis_pool.clone()).await;
+    let id = get_new_record_id(UserType::User, redis_pool.clone()).await;
     let user_key = generate_key(UserType::User, &payload.user_name, id);
     let user_data = UserRecord {
         id,
@@ -257,7 +258,7 @@ pub(super) async fn perform_sudo_register_record(
 ) -> Result<(), RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
-    let id = get_user_id(redis_pool.clone()).await;
+    let id = get_new_record_id(UserType::SudoUser, redis_pool.clone()).await;
     con.set(OperatingRedisKey::CurrentId.to_string(), id)
         .await?;
 
@@ -398,13 +399,20 @@ fn generate_key(user_type: UserType, user_name: &str, id: i32) -> String {
     )
 }
 
-async fn get_user_id(redis_pool: Pool<RedisConnectionManager>) -> i32 {
+/// Get new incremented ID when creating a new record.
+async fn get_new_record_id(user_type: UserType, redis_pool: Pool<RedisConnectionManager>) -> i32 {
     let mut con = redis_pool.get().await.unwrap();
+
+    let id_path = match user_type {
+        UserType::User => OperatingInfoRedisJsonPath::LatestRecordId.to_string(),
+        UserType::SudoUser => OperatingInfoRedisJsonPath::LatestSudoRecordId.to_string(),
+    };
+
     match con
-        .get::<&str, i32>(OperatingRedisKey::CurrentId.to_string().as_str())
+        .json_get(OperatingRedisKey::OperatingInfo.to_string(), &id_path)
         .await
     {
-        Ok(current_id) => current_id + 1,
-        Err(_err) => 0,
+        Ok(Some(id)) => id,
+        _ => 0,
     }
 }
