@@ -77,7 +77,7 @@ pub(super) async fn perform_register_record(
     payload: RegisterRecordPayload,
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<String, RuntimeError> {
-    let id = get_new_record_id(UserType::User, redis_pool.clone()).await;
+    let id = get_new_record_id(UserType::User, redis_pool.clone()).await?;
     let user_key = generate_key(UserType::User, &payload.user_name, id);
     let user_data = UserRecord {
         id,
@@ -258,7 +258,7 @@ pub(super) async fn perform_sudo_register_record(
 ) -> Result<(), RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
-    let id = get_new_record_id(UserType::SudoUser, redis_pool.clone()).await;
+    let id = get_new_record_id(UserType::SudoUser, redis_pool.clone()).await?;
     con.set(OperatingRedisKey::CurrentId.to_string(), id)
         .await?;
 
@@ -400,7 +400,10 @@ fn generate_key(user_type: UserType, user_name: &str, id: i32) -> String {
 }
 
 /// Get new incremented ID when creating a new record.
-async fn get_new_record_id(user_type: UserType, redis_pool: Pool<RedisConnectionManager>) -> i32 {
+async fn get_new_record_id(
+    user_type: UserType,
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<i32, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
 
     let id_path = match user_type {
@@ -410,9 +413,9 @@ async fn get_new_record_id(user_type: UserType, redis_pool: Pool<RedisConnection
 
     match con
         .json_get(OperatingRedisKey::OperatingInfo.to_string(), &id_path)
-        .await
+        .await?
     {
-        Ok(Some(id)) => id,
-        _ => 0,
+        Some(id) => Ok(id),
+        _ => Ok(0),
     }
 }
