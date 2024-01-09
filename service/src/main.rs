@@ -7,7 +7,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use bb8_redis::{bb8::Pool, RedisConnectionManager};
+use bb8_redis::{bb8::Pool, redis::JsonAsyncCommands, RedisConnectionManager};
+use libs::{OperatingInfoRedisJsonPath, OperatingRedisKey};
 use shuttle_runtime::{CustomError, Error};
 use std::net::SocketAddr;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
@@ -44,6 +45,38 @@ pub struct AppState {
     redis_pool: Pool<RedisConnectionManager>,
 }
 
+async fn check_or_init_operating_record(redis_pool: Pool<RedisConnectionManager>) {
+    let mut con = redis_pool.get().await.unwrap();
+
+    match con
+        .json_get::<&str, &str, Option<String>>(
+            OperatingRedisKey::OperatingInfo.to_string().as_str(),
+            OperatingInfoRedisJsonPath::Root.to_string().as_str(),
+        )
+        .await
+        .unwrap()
+    {
+        Some(_) => {
+            tracing::info!("Check: `operating_info` exists.");
+        }
+        None => {
+            tracing::info!("Check: `operating_info` doesn't exist. Creating");
+            let operating_info = libs::OperatingInfo {
+                latest_record_id: 0,
+                latest_sudo_record_id: 0,
+            };
+            let _: () = con
+                .json_set(
+                    OperatingRedisKey::OperatingInfo.to_string().as_str(),
+                    OperatingInfoRedisJsonPath::Root.to_string().as_str(),
+                    &serde_json::json!(operating_info),
+                )
+                .await
+                .unwrap();
+        }
+    };
+}
+
 #[shuttle_runtime::main]
 // async fn axum() -> shuttle_axum::ShuttleAxum {
 async fn axum() -> PShuttleAxum {
@@ -54,6 +87,8 @@ async fn axum() -> PShuttleAxum {
         .build(redis_manager)
         .await
         .unwrap();
+
+    check_or_init_operating_record(pool.clone()).await;
 
     let app_state = AppState { redis_pool: pool };
 

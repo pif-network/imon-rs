@@ -20,6 +20,13 @@ pub enum OperatingInfoRedisJsonPath {
 }
 
 #[derive(Debug, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum OperatingRedisKey {
+    CurrentId,
+    OperatingInfo,
+}
+
+#[derive(Debug, Display)]
 pub enum UserRecordRedisJsonPath {
     #[strum(serialize = "$")]
     Root,
@@ -35,13 +42,6 @@ pub enum SudoUserRecordRedisJsonPath {
     Root,
     #[strum(serialize = "$.published_tasks")]
     PublishedTasks,
-}
-
-#[derive(Debug, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum OperatingRedisKey {
-    CurrentId,
-    OperatingInfo,
 }
 
 #[derive(Debug, Display)]
