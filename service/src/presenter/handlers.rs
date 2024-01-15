@@ -85,7 +85,6 @@ pub async fn register_record(
 
 pub async fn get_all_user_records(
     State(app_state): State<AppState>,
-    // ValidatedJson(payload): ValidatedJson<RegisterRecordPayload>,
 ) -> Result<impl IntoResponse, RuntimeError> {
     let user_records = perform_get_all_user_records(app_state.redis_pool).await?;
     Ok(Json(serde_json::json!({

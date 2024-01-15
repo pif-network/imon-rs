@@ -171,16 +171,14 @@ pub(super) async fn perform_get_all_user_records(
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<Vec<UserRecord>, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
-    let mut keys = con
-        .scan_match::<&str, std::string::String>("user:*:????")
-        .await?;
+    let keys_resp_str: String = con.json_get("users", "$").await?;
+    let keys_resp = serde_json::from_str::<Vec<Vec<String>>>(&keys_resp_str)?;
+    let keys = keys_resp.into_iter().next().unwrap();
 
     let mut user_records: Vec<UserRecord> = vec![];
 
-    while let Some(key) = keys.next_item().await {
-        let mut new_con = redis_pool.get().await.unwrap();
-
-        let Some(data_str) = new_con
+    for key in keys {
+        let Some(data_str) = con
             .json_get::<&std::string::String, &str, Option<String>>(
                 &key,
                 UserRecordRedisJsonPath::Root.to_string().as_str(),
@@ -202,6 +200,42 @@ pub(super) async fn perform_get_all_user_records(
 
     Ok(user_records)
 }
+
+// pub(super) async fn perform_get_all_user_records(
+//     redis_pool: Pool<RedisConnectionManager>,
+// ) -> Result<Vec<UserRecord>, RuntimeError> {
+//     let mut con = redis_pool.get().await.unwrap();
+//     let mut keys = con
+//         .scan_match::<&str, std::string::String>("user:*:????")
+//         .await?;
+//
+//     let mut user_records: Vec<UserRecord> = vec![];
+//
+//     while let Some(key) = keys.next_item().await {
+//         let mut new_con = redis_pool.get().await.unwrap();
+//
+//         let Some(data_str) = new_con
+//             .json_get::<&std::string::String, &str, Option<String>>(
+//                 &key,
+//                 UserRecordRedisJsonPath::Root.to_string().as_str(),
+//             )
+//             .await?
+//         else {
+//             // NOTE: This technically will not happen, since
+//             // the keys are generated from the pre-defined pattern.
+//             // TODO: Handle when there exists keys that
+//             // follow the pattern but do not have the data.
+//             panic!("invalid record found: {:?}", key);
+//         };
+//
+//         let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)?;
+//         tracing::debug!("user_data: {:?}", user_data);
+//
+//         user_records.push(user_data.into_iter().next().unwrap());
+//     }
+//
+//     Ok(user_records)
+// }
 
 pub(super) async fn perform_update_task(
     payload: UpdateTaskPayload,
