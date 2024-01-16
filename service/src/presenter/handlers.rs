@@ -159,7 +159,7 @@ pub async fn user_rpc(
             }
         },
         RpcPayloadType::Sudo => Err(RuntimeError::UnprocessableEntity {
-            name: "of".to_string(),
+            name: "metadata.of".to_string(),
         })?,
     }
 }
@@ -198,7 +198,7 @@ pub async fn sudo_user_rpc(
             }
         },
         RpcPayloadType::User => Err(RuntimeError::UnprocessableEntity {
-            name: "of".to_string(),
+            name: "metadata.of".to_string(),
         })?,
     }
 }

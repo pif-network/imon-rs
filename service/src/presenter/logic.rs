@@ -31,7 +31,7 @@ pub(super) async fn perform_create_task(
     else {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     };
 
@@ -114,7 +114,7 @@ pub(super) async fn perform_reset_record(
     if !key_exists {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     }
 
@@ -154,7 +154,7 @@ pub(super) async fn perform_get_user_record(
     else {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     };
 
@@ -252,7 +252,7 @@ pub(super) async fn perform_update_task(
     else {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     };
 
@@ -327,7 +327,7 @@ pub(super) async fn perform_sudo_create_task(
     else {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     };
 
@@ -366,7 +366,7 @@ pub(super) async fn perform_sudo_reset_record(
     if !key_exists {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     }
 
@@ -376,9 +376,9 @@ pub(super) async fn perform_sudo_reset_record(
             .parse::<i32>()
             // NOTE: Although it may appears that this check is obsolete,
             // it is still necessary to ensure that uses would only get
-            // responses from correct key.
+            // responses from correct key, even from the db.
             .map_err(|_| RuntimeError::UnprocessableEntity {
-                name: "key".to_string(),
+                name: "payload.key".to_string(),
             })?,
         user_name: vec_payload_key[1].to_string(),
         published_tasks: vec![],
@@ -408,7 +408,7 @@ pub(super) async fn perform_sudo_get_record(
     else {
         tracing::debug!("non-exist record: {:?}", payload);
         return Err(RuntimeError::UnprocessableEntity {
-            name: "key".to_string(),
+            name: "payload.key".to_string(),
         });
     };
 
