@@ -56,6 +56,18 @@ pub enum RpcPayloadType {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub enum UserRpcEventType {
+    #[serde(rename = "register")]
+    RegisterRecord,
+    #[serde(rename = "add_task")]
+    AddTask,
+    #[serde(rename = "reset_record")]
+    ResetRecord,
+    #[serde(rename = "get_single_record")]
+    GetSingleRecord,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum SudoUserRpcEventType {
     #[serde(rename = "register")]
     RegisterRecord,
@@ -65,6 +77,21 @@ pub enum SudoUserRpcEventType {
     ResetRecord,
     #[serde(rename = "get_single_record")]
     GetSingleRecord,
+}
+
+#[derive(Serialize, Deserialize, Debug, TryFromPayload)]
+#[serde(tag = "event_type")]
+pub enum UserRpcEventPayload {
+    #[serde(rename = "register")]
+    RegisterRecord(RegisterRecordPayload),
+    #[serde(rename = "add_task")]
+    AddTask(StoreTaskPayload),
+    #[serde(rename = "reset_record")]
+    ResetRecord(ResetRecordPayload),
+    #[serde(rename = "get_single_record")]
+    GetSingleRecord(GetSingleRecordPayload),
+    #[serde(rename = "get_all_record")]
+    GetAllRecord,
 }
 
 #[derive(Serialize, Deserialize, Debug, TryFromPayload)]
@@ -83,6 +110,12 @@ pub enum SudoUserRpcEventPayload {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcPayloadMetadata {
     of: RpcPayloadType,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserRpcRequest {
+    metadata: RpcPayloadMetadata,
+    payload: UserRpcEventPayload,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

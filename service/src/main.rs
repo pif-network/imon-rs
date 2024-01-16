@@ -94,6 +94,7 @@ async fn axum() -> PShuttleAxum {
 
     let router = Router::new()
         .route("/v1/rpc/sudo", post(handlers::sudo_user_rpc))
+        .route("/v1/rpc/user", post(handlers::user_rpc))
         .route("/v1/record/new", post(handlers::register_record))
         .route("/v1/record", post(handlers::get_user_record))
         .route("/v1/record/all", get(handlers::get_all_user_records))

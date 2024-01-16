@@ -14,12 +14,12 @@ use super::{
         perform_update_task,
     },
     GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError,
-    StoreTaskPayload, SudoUserRpcRequest, UpdateTaskPayload,
+    StoreTaskPayload, SudoUserRpcRequest, UpdateTaskPayload, UserRpcRequest,
 };
 use crate::{
     presenter::{
         logic::{perform_sudo_create_task, perform_sudo_get_record, perform_sudo_reset_record},
-        RpcPayloadType, SudoUserRpcEventPayload,
+        RpcPayloadType, SudoUserRpcEventPayload, UserRpcEventPayload,
     },
     AppState,
 };
@@ -116,6 +116,52 @@ pub async fn update_task_log(
     Ok(Json(serde_json::json!({
         "status": "ok",
     })))
+}
+
+pub async fn user_rpc(
+    State(app_state): State<AppState>,
+    ValidatedJson(request): ValidatedJson<UserRpcRequest>,
+) -> Result<impl IntoResponse, RuntimeError> {
+    tracing::debug!("request: {:?}", request);
+    match request.metadata.of {
+        RpcPayloadType::User => match request.payload {
+            UserRpcEventPayload::RegisterRecord(payload) => {
+                perform_register_record(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
+            }
+            UserRpcEventPayload::AddTask(payload) => {
+                perform_create_task(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
+            }
+            UserRpcEventPayload::ResetRecord(payload) => {
+                perform_reset_record(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
+            }
+            UserRpcEventPayload::GetSingleRecord(payload) => {
+                let record = perform_get_user_record(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                    "data": record
+                })))
+            }
+            UserRpcEventPayload::GetAllRecord => {
+                let records = perform_get_all_user_records(app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                    "data": records
+                })))
+            }
+        },
+        RpcPayloadType::Sudo => Err(RuntimeError::UnprocessableEntity {
+            name: "of".to_string(),
+        })?,
+    }
 }
 
 pub async fn sudo_user_rpc(
