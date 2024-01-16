@@ -14,7 +14,8 @@ pub fn impl_try_from_for_payload(input: syn::DeriveInput) -> TokenStream {
 
                 let fields = match v.fields {
                     syn::Fields::Unnamed(ref f) => &f.unnamed,
-                    _ => panic!("Only unnamed fields are supported"),
+                    // ignore other variants
+                    _ => return Vec::new(),
                 };
 
                 fields
