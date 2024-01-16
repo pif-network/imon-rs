@@ -194,10 +194,19 @@ fn construct_err_resp_invalid_incoming_json(
 ) -> (StatusCode, axum::Json<serde_json::Value>) {
     match err {
         case @ JsonRejection::JsonDataError(_) => {
+            tracing::error!("rejected json: {:?}", case);
             let p = serde_json::json!({
                 "status": "error",
                 "message": "Invalid JSON",
                 "error": format!("{:?}", case.body_text()),
+            });
+            (StatusCode::BAD_REQUEST, Json(p))
+        }
+        JsonRejection::JsonSyntaxError(e) => {
+            tracing::error!("invalid json: {:?}", e);
+            let p = serde_json::json!({
+                "status": "error",
+                "message": "Invalid JSON",
             });
             (StatusCode::BAD_REQUEST, Json(p))
         }
