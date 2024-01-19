@@ -92,7 +92,7 @@ struct Endpoints {
 fn main() {
     let endpoints = Endpoints {
         auth: format!("{}{}", SERVICE_DOMAIN, "/v1/record/new"),
-        post_task_payload: format!("{}{}", SERVICE_DOMAIN, "/v1/store"),
+        post_task_payload: format!("{}{}", SERVICE_DOMAIN, "/v1/task/new"),
         get_task_log: format!("{}{}", SERVICE_DOMAIN, "/v1/task-log"),
     };
     let request_client = reqwest::blocking::Client::new();

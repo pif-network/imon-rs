@@ -147,14 +147,18 @@ pub async fn user_rpc(
                 let record = perform_get_user_record(payload, app_state.redis_pool).await?;
                 Ok(Json(serde_json::json!({
                     "status": "ok",
-                    "data": record
+                    "data": {
+                        "task_log": record,
+                }
                 })))
             }
             UserRpcEventPayload::GetAllRecord => {
                 let records = perform_get_all_user_records(app_state.redis_pool).await?;
                 Ok(Json(serde_json::json!({
                     "status": "ok",
-                    "data": records
+                    "data": {
+                        "user_records": records,
+                }
                 })))
             }
         },
