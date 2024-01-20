@@ -5,9 +5,14 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
+use libs::payload::{RegisterRecordPayload, StoreTaskPayload};
 use serde::{Deserialize, Serialize};
 
 use libs::record::{Task, TaskState};
+
+use crate::util::make_request;
+
+pub mod util;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -143,36 +148,23 @@ fn main() {
 
                 println!("Sure, you are.");
 
-                match request_client
-                    .post(endpoints.post_task_payload)
-                    .json(&serde_json::json!({
-                        "key": current_user_key,
-                        "task": new_task,
-                    }))
-                    .send()
-                {
-                    Ok(r) => {
-                        match r.error_for_status() {
-                            Ok(res) => {
-                                println!("{:?}", res);
-                                let json_r = res.json::<TaskResponse>().unwrap();
-                                println!("{:?}", json_r);
-
-                                if let Err(e) =
-                                    writeln!(file, "{}", serde_json::to_string(&new_task).unwrap())
-                                {
-                                    eprintln!("Couldn't write to file: {}", e);
-                                }
-                            }
-                            Err(e) => {
-                                println!("eft {:?}", e);
-                            }
-                        };
-                    }
-                    Err(e) => {
-                        println!("{:?}", e);
-                    }
+                let payload = StoreTaskPayload {
+                    key: current_user_key.clone(),
+                    task: new_task.clone(),
                 };
+                if let Err(e) = make_request(
+                    &request_client,
+                    reqwest::Method::POST,
+                    &endpoints.post_task_payload,
+                    payload,
+                ) {
+                    eprintln!("Failed to post to upstream: {}", e);
+                    return;
+                }
+
+                if let Err(e) = writeln!(file, "{}", serde_json::to_string(&new_task).unwrap()) {
+                    eprintln!("Couldn't write to file: {}", e);
+                }
             }
             Commands::Break => {
                 if latest_task.state == TaskState::Break {
@@ -187,36 +179,23 @@ fn main() {
 
                 println!("Really?");
 
-                match request_client
-                    .post(endpoints.post_task_payload)
-                    .json(&serde_json::json!({
-                        "user_name": current_user_key,
-                        "task": new_task,
-                    }))
-                    .send()
-                {
-                    Ok(r) => {
-                        match r.error_for_status() {
-                            Ok(res) => {
-                                println!("{:?}", res);
-                                let json_r = res.json::<TaskResponse>().unwrap();
-                                println!("{:?}", json_r);
-
-                                if let Err(e) =
-                                    writeln!(file, "{}", serde_json::to_string(&new_task).unwrap())
-                                {
-                                    eprintln!("Couldn't write to file: {}", e);
-                                }
-                            }
-                            Err(e) => {
-                                println!("eft {:?}", e);
-                            }
-                        };
-                    }
-                    Err(e) => {
-                        println!("{:?}", e);
-                    }
+                let payload = StoreTaskPayload {
+                    key: current_user_key.clone(),
+                    task: new_task.clone(),
                 };
+                if let Err(e) = make_request(
+                    &request_client,
+                    reqwest::Method::POST,
+                    &endpoints.post_task_payload,
+                    payload,
+                ) {
+                    eprintln!("Failed to post to upstream: {}", e);
+                    return;
+                }
+
+                if let Err(e) = writeln!(file, "{}", serde_json::to_string(&new_task).unwrap()) {
+                    eprintln!("Couldn't write to file: {}", e);
+                }
             }
             Commands::Back {} => {
                 if latest_task.state == TaskState::Begin {
@@ -231,36 +210,23 @@ fn main() {
 
                 println!("Ah, finally.");
 
-                match request_client
-                    .post(endpoints.post_task_payload)
-                    .json(&serde_json::json!({
-                        "user_name": current_user_key,
-                        "task": new_task,
-                    }))
-                    .send()
-                {
-                    Ok(r) => {
-                        match r.error_for_status() {
-                            Ok(res) => {
-                                println!("{:?}", res);
-                                let json_r = res.json::<TaskResponse>().unwrap();
-                                println!("{:?}", json_r);
-
-                                if let Err(e) =
-                                    writeln!(file, "{}", serde_json::to_string(&new_task).unwrap())
-                                {
-                                    eprintln!("Couldn't write to file: {}", e);
-                                }
-                            }
-                            Err(e) => {
-                                println!("eft {:?}", e);
-                            }
-                        };
-                    }
-                    Err(e) => {
-                        println!("{:?}", e);
-                    }
+                let payload = StoreTaskPayload {
+                    key: current_user_key.clone(),
+                    task: new_task.clone(),
                 };
+                if let Err(e) = make_request(
+                    &request_client,
+                    reqwest::Method::POST,
+                    &endpoints.post_task_payload,
+                    payload,
+                ) {
+                    eprintln!("Failed to post to upstream: {}", e);
+                    return;
+                }
+
+                if let Err(e) = writeln!(file, "{}", serde_json::to_string(&new_task).unwrap()) {
+                    eprintln!("Couldn't write to file: {}", e);
+                }
             }
             Commands::Done {} => {
                 if latest_task.state == TaskState::End {
@@ -275,43 +241,23 @@ fn main() {
                     new_task.name, new_task.duration,
                 );
 
-                match request_client
-                    .post(endpoints.post_task_payload)
-                    .json(&serde_json::json!({
-                        "user_name": current_user_key,
-                        "task": new_task,
-                    }))
-                    .send()
-                {
-                    Ok(r) => {
-                        println!("{:?}", r);
-                        let json_r = r.json::<TaskResponse>().unwrap();
-
-                        match json_r.status.as_str() {
-                            "ok" => {
-                                if let Err(e) =
-                                    writeln!(file, "{}", serde_json::to_string(&new_task).unwrap())
-                                {
-                                    eprintln!("Couldn't write to file: {}", e);
-                                }
-                            }
-                            "error" => match json_r.message {
-                                Some(message) => {
-                                    println!("{}", message);
-                                }
-                                None => {
-                                    println!("Something went wrong.");
-                                }
-                            },
-                            _ => {
-                                println!("Something went wrong.");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        println!("{:?}", e);
-                    }
+                let payload = StoreTaskPayload {
+                    key: current_user_key.clone(),
+                    task: new_task.clone(),
                 };
+                if let Err(e) = make_request(
+                    &request_client,
+                    reqwest::Method::POST,
+                    &endpoints.post_task_payload,
+                    payload,
+                ) {
+                    eprintln!("Failed to post to upstream: {}", e);
+                    return;
+                }
+
+                if let Err(e) = writeln!(file, "{}", serde_json::to_string(&new_task).unwrap()) {
+                    eprintln!("Couldn't write to file: {}", e);
+                }
             }
             Commands::Check {} => {
                 println!("You are working on `{}`.", latest_task.name);
@@ -324,34 +270,31 @@ fn main() {
                         return;
                     }
 
-                    match request_client
-                        .post(endpoints.auth)
-                        .json(&serde_json::json!({
-                            "user_name": user_name,
-                        }))
-                        .send()
-                    {
-                        Ok(r) => {
-                            let json_r = r.json::<AuthResponse>().unwrap();
-                            println!("{:?}", json_r);
-
-                            let mut user_file = fs::File::options()
-                                .write(true)
-                                .create(true)
-                                .truncate(true)
-                                .open(user_path)
-                                .unwrap();
-
-                            if let Err(e) = user_file.write_all(&json_r.data.user_key.into_bytes())
-                            {
-                                eprintln!("Couldn't write to file: {}", e);
-                                return;
-                            }
-                        }
-                        Err(e) => {
-                            println!("{:?}", e);
-                        }
+                    let payload = RegisterRecordPayload {
+                        user_name: user_name.clone(),
                     };
+
+                    if let Err(e) = make_request(
+                        &request_client,
+                        reqwest::Method::POST,
+                        &endpoints.auth,
+                        payload,
+                    ) {
+                        eprintln!("Failed to post to upstream: {}", e);
+                        return;
+                    }
+
+                    let mut user_file = fs::File::options()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(user_path)
+                        .unwrap();
+
+                    if let Err(e) = user_file.write_all(&json_r.data.user_key.into_bytes()) {
+                        eprintln!("Couldn't write to file: {}", e);
+                        return;
+                    }
 
                     println!("Drink water, {}.", user_name);
                 }

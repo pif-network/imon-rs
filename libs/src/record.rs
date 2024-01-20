@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use redis::FromRedisValue;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum TaskState {
     Begin,
     Break,
@@ -11,7 +11,7 @@ pub enum TaskState {
     Idle,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Task {
     pub name: String,
     pub state: TaskState,
