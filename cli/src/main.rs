@@ -38,6 +38,11 @@ struct AuthResponse {
     data: AuthResponseData,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct NewTaskResponse {
+    status: String,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// What are you working on?
@@ -152,7 +157,7 @@ fn main() {
                     key: current_user_key.clone(),
                     task: new_task.clone(),
                 };
-                if let Err(e) = make_request(
+                if let Err(e) = make_request::<_, NewTaskResponse>(
                     &request_client,
                     reqwest::Method::POST,
                     &endpoints.post_task_payload,
@@ -183,7 +188,7 @@ fn main() {
                     key: current_user_key.clone(),
                     task: new_task.clone(),
                 };
-                if let Err(e) = make_request(
+                if let Err(e) = make_request::<_, NewTaskResponse>(
                     &request_client,
                     reqwest::Method::POST,
                     &endpoints.post_task_payload,
@@ -214,7 +219,7 @@ fn main() {
                     key: current_user_key.clone(),
                     task: new_task.clone(),
                 };
-                if let Err(e) = make_request(
+                if let Err(e) = make_request::<_, NewTaskResponse>(
                     &request_client,
                     reqwest::Method::POST,
                     &endpoints.post_task_payload,
@@ -245,7 +250,7 @@ fn main() {
                     key: current_user_key.clone(),
                     task: new_task.clone(),
                 };
-                if let Err(e) = make_request(
+                if let Err(e) = make_request::<_, NewTaskResponse>(
                     &request_client,
                     reqwest::Method::POST,
                     &endpoints.post_task_payload,
@@ -274,26 +279,31 @@ fn main() {
                         user_name: user_name.clone(),
                     };
 
-                    if let Err(e) = make_request(
+                    match make_request::<_, AuthResponse>(
                         &request_client,
                         reqwest::Method::POST,
                         &endpoints.auth,
                         payload,
                     ) {
-                        eprintln!("Failed to post to upstream: {}", e);
-                        return;
-                    }
+                        Ok(resp_body) => {
+                            let mut user_file = fs::File::options()
+                                .write(true)
+                                .create(true)
+                                .truncate(true)
+                                .open(user_path)
+                                .unwrap();
 
-                    let mut user_file = fs::File::options()
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(user_path)
-                        .unwrap();
-
-                    if let Err(e) = user_file.write_all(&json_r.data.user_key.into_bytes()) {
-                        eprintln!("Couldn't write to file: {}", e);
-                        return;
+                            if let Err(e) =
+                                user_file.write_all(&resp_body.data.user_key.into_bytes())
+                            {
+                                eprintln!("Couldn't write to file: {}", e);
+                                return;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to post to upstream: {}", e);
+                            return;
+                        }
                     }
 
                     println!("Drink water, {}.", user_name);

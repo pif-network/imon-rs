@@ -1,16 +1,15 @@
 use reqwest::{blocking::Client, Method};
 use serde::Serialize;
 
-use crate::TaskResponse;
-
-pub fn make_request<T>(
+pub fn make_request<T, B>(
     request_client: &Client,
     method: Method,
     url: &str,
     body: T,
-) -> Result<(), String>
+) -> Result<B, String>
 where
     T: Serialize,
+    B: std::fmt::Debug + serde::de::DeserializeOwned,
 {
     let resp = request_client
         .request(method, url)
@@ -19,12 +18,12 @@ where
         .map_err(|e| format!("Error sending request: {}", e))?;
 
     let status = resp.status();
-    let body = resp.json::<TaskResponse>().unwrap();
-    println!("{:?}", body);
 
     if status.is_success() {
-        Ok(())
+        let body = resp.json::<B>().unwrap();
+        println!("{:?}", body);
+        Ok(body)
     } else {
-        Err(format!("Error: {:?}", body.message))
+        Err(format!("Error: {:?}", status))
     }
 }
