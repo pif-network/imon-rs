@@ -104,9 +104,9 @@ fn main() {
         .create(true)
         .open(&user_path)
         .unwrap();
-    // Format: $user_name:$id
+    // Format: $role:$user_name:$id
     let current_user_key = retrieve_user_key(&mut user_file);
-    let current_user_name = current_user_key.split(':').collect::<Vec<&str>>()[0];
+    let current_user_name = current_user_key.split(':').collect::<Vec<&str>>()[1];
 
     let path = PathBuf::from("/tmp/imon-tmp.txt");
     let mut file = fs::File::options()
@@ -407,7 +407,7 @@ fn main() {
         println!("Please register yourself.");
     } else {
         println!(
-            "{}. You are {}",
+            "{}. You are {}.",
             current_user_name.to_uppercase(),
             current_user_name
         );
