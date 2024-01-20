@@ -10,7 +10,7 @@ pub mod logic;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StoreTaskPayload {
-    user_name: String,
+    key: String,
     task: Task,
 }
 

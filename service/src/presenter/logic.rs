@@ -24,7 +24,7 @@ pub(super) async fn perform_create_task(
 
     let Some(data_str) = con
         .json_get::<&std::string::String, &str, Option<String>>(
-            &payload.user_name,
+            &payload.key,
             UserRecordRedisJsonPath::Root.to_string().as_str(),
         )
         .await?
@@ -48,7 +48,7 @@ pub(super) async fn perform_create_task(
 
     let task_history = user_data_vec.into_iter().next().unwrap().task_history;
     con.json_set(
-        &payload.user_name,
+        &payload.key,
         UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
         &serde_json::json!(task_history),
     )
@@ -56,7 +56,7 @@ pub(super) async fn perform_create_task(
 
     tracing::debug!("appending");
     con.json_arr_append(
-        &payload.user_name,
+        &payload.key,
         UserRecordRedisJsonPath::TaskHistory.to_string().as_str(),
         &serde_json::json!(&payload.task),
     )
@@ -64,7 +64,7 @@ pub(super) async fn perform_create_task(
 
     tracing::debug!("setting current task");
     con.json_set(
-        &payload.user_name,
+        &payload.key,
         UserRecordRedisJsonPath::CurrentTask.to_string().as_str(),
         &serde_json::json!(&payload.task),
     )

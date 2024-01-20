@@ -146,7 +146,7 @@ fn main() {
                 match request_client
                     .post(endpoints.post_task_payload)
                     .json(&serde_json::json!({
-                        "user_name": current_user_key,
+                        "key": current_user_key,
                         "task": new_task,
                     }))
                     .send()
