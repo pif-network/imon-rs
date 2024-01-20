@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
+pub mod payload;
 pub mod record;
 
 #[derive(Serialize, Deserialize, Debug)]

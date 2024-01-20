@@ -6,11 +6,12 @@ use bb8_redis::{
     RedisConnectionManager,
 };
 
-use super::{
-    GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError,
-    StoreSTaskPayload, StoreTaskPayload, UpdateTaskPayload,
-};
+use super::RuntimeError;
 use libs::{
+    payload::{
+        GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, StoreSTaskPayload,
+        StoreTaskPayload, UpdateTaskPayload,
+    },
     record::{STask, SudoUserRecord, Task, TaskState, UserRecord},
     OperatingInfoRedisJsonPath, OperatingRedisKey, SudoUserRecordRedisJsonPath,
     UserRecordRedisJsonPath, UserType,

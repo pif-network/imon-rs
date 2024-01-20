@@ -10,18 +10,17 @@ use super::{
     construct_err_resp_invalid_incoming_json,
     logic::{
         perform_create_task, perform_get_all_user_records, perform_get_user_record,
-        perform_register_record, perform_reset_record, perform_sudo_register_record,
+        perform_register_record, perform_reset_record, perform_sudo_create_task,
+        perform_sudo_get_record, perform_sudo_register_record, perform_sudo_reset_record,
         perform_update_task,
     },
-    GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, RuntimeError,
-    StoreTaskPayload, SudoUserRpcRequest, UpdateTaskPayload, UserRpcRequest,
+    RpcPayloadType, RuntimeError, SudoUserRpcEventPayload, SudoUserRpcRequest, UserRpcEventPayload,
+    UserRpcRequest,
 };
-use crate::{
-    presenter::{
-        logic::{perform_sudo_create_task, perform_sudo_get_record, perform_sudo_reset_record},
-        RpcPayloadType, SudoUserRpcEventPayload, UserRpcEventPayload,
-    },
-    AppState,
+use crate::AppState;
+use libs::payload::{
+    GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, StoreTaskPayload,
+    UpdateTaskPayload,
 };
 
 #[derive(Debug)]

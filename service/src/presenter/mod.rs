@@ -3,49 +3,13 @@ use bb8_redis::redis;
 use serde::{Deserialize, Serialize};
 
 use imon_derive::TryFromPayload;
-use libs::record::{Task, TaskState};
+use libs::payload::{
+    GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, StoreSTaskPayload,
+    StoreTaskPayload,
+};
 
 pub mod handlers;
 pub mod logic;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct StoreTaskPayload {
-    key: String,
-    task: Task,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RegisterRecordPayload {
-    user_name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ResetRecordPayload {
-    key: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GetSingleRecordPayload {
-    key: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct UpdateTaskPayload {
-    key: String,
-    state: TaskState,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct STaskIn {
-    pub name: String,
-    pub description: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct StoreSTaskPayload {
-    key: String,
-    task: STaskIn,
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcPayloadType {
