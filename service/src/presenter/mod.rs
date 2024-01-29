@@ -71,6 +71,8 @@ pub enum SudoUserRpcEventPayload {
     ResetRecord(ResetRecordPayload),
     #[serde(rename = "get_single_record")]
     GetSingleRecord(GetSingleRecordPayload),
+    #[serde(rename = "get_all_record")]
+    GetAllRecord,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

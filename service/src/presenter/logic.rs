@@ -172,7 +172,12 @@ pub(super) async fn perform_get_all_user_records(
     redis_pool: Pool<RedisConnectionManager>,
 ) -> Result<Vec<UserRecord>, RuntimeError> {
     let mut con = redis_pool.get().await.unwrap();
-    let keys_resp_str: String = con.json_get("users", "$").await?;
+    let keys_resp_str: String = con
+        .json_get(
+            OperatingRedisKey::OperatingInfo.to_string().as_str(),
+            OperatingInfoRedisJsonPath::UserList.to_string().as_str(),
+        )
+        .await?;
     let keys_resp = serde_json::from_str::<Vec<Vec<String>>>(&keys_resp_str)?;
     let keys = keys_resp.into_iter().next().unwrap();
 
@@ -193,13 +198,56 @@ pub(super) async fn perform_get_all_user_records(
             panic!("invalid record found: {:?}", key);
         };
 
-        let user_data: Vec<UserRecord> = serde_json::from_str(&data_str)?;
-        tracing::debug!("user_data: {:?}", user_data);
+        let user_data_vec: Vec<UserRecord> = serde_json::from_str(&data_str)?;
+        let user_data = user_data_vec.into_iter().next().unwrap();
+        tracing::debug!("retrieved_user_data: {:?}", user_data.user_name);
 
-        user_records.push(user_data.into_iter().next().unwrap());
+        user_records.push(user_data);
     }
 
     Ok(user_records)
+}
+
+pub(super) async fn perform_get_all_sudo_records(
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<Vec<SudoUserRecord>, RuntimeError> {
+    let mut con = redis_pool.get().await.unwrap();
+    let keys_resp_str: String = con
+        .json_get(
+            OperatingRedisKey::OperatingInfo.to_string().as_str(),
+            OperatingInfoRedisJsonPath::SudoUserList
+                .to_string()
+                .as_str(),
+        )
+        .await?;
+    let keys_resp = serde_json::from_str::<Vec<Vec<String>>>(&keys_resp_str)?;
+    let keys = keys_resp.into_iter().next().unwrap();
+
+    let mut sudo_records: Vec<SudoUserRecord> = vec![];
+
+    for key in keys {
+        let Some(data_str) = con
+            .json_get::<&std::string::String, &str, Option<String>>(
+                &key,
+                SudoUserRecordRedisJsonPath::Root.to_string().as_str(),
+            )
+            .await?
+        else {
+            // NOTE: This technically will not happen, since
+            // the keys are generated from the pre-defined pattern.
+            // TODO: Handle when there exists keys that
+            // follow the pattern but do not have the data.
+            panic!("invalid record found: {:?}", key);
+        };
+
+        let sudo_user_data_vec: Vec<SudoUserRecord> = serde_json::from_str(&data_str)?;
+        let sudo_user_data = sudo_user_data_vec.into_iter().next().unwrap();
+        tracing::debug!("retrieved_sudo_user: {:?}", sudo_user_data.user_name);
+
+        sudo_records.push(sudo_user_data);
+    }
+
+    Ok(sudo_records)
 }
 
 // pub(super) async fn perform_get_all_user_records(

@@ -17,7 +17,7 @@ use super::{
     RpcPayloadType, RuntimeError, SudoUserRpcEventPayload, SudoUserRpcRequest, UserRpcEventPayload,
     UserRpcRequest,
 };
-use crate::AppState;
+use crate::{presenter::logic::perform_get_all_sudo_records, AppState};
 use libs::payload::{
     GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, StoreTaskPayload,
     UpdateTaskPayload,
@@ -158,7 +158,7 @@ pub async fn user_rpc(
                 })))
             }
             UserRpcEventPayload::GetAllRecord => {
-                let records = perform_get_all_user_records(app_state.redis_pool).await?;
+                let records = perform_get_all_sudo_records(app_state.redis_pool).await?;
                 Ok(Json(serde_json::json!({
                     "status": "ok",
                     "data": {
@@ -203,6 +203,15 @@ pub async fn sudo_user_rpc(
                 Ok(Json(serde_json::json!({
                     "status": "ok",
                     "data": record
+                })))
+            }
+            SudoUserRpcEventPayload::GetAllRecord => {
+                let records = perform_get_all_user_records(app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                    "data": {
+                        "user_records": records,
+                }
                 })))
             }
         },

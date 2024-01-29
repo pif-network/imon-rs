@@ -8,6 +8,8 @@ pub mod record;
 pub struct OperatingInfo {
     pub latest_record_id: i32,
     pub latest_sudo_record_id: i32,
+    pub user_list: Vec<String>,
+    pub sudo_user_list: Vec<String>,
 }
 
 #[derive(Debug, Display)]
@@ -18,6 +20,10 @@ pub enum OperatingInfoRedisJsonPath {
     LatestRecordId,
     #[strum(serialize = "$.latest_sudo_record_id")]
     LatestSudoRecordId,
+    #[strum(serialize = "$.user_list")]
+    UserList,
+    #[strum(serialize = "$.sudo_user_list")]
+    SudoUserList,
 }
 
 #[derive(Debug, Display)]

@@ -64,6 +64,8 @@ async fn check_or_init_operating_record(redis_pool: Pool<RedisConnectionManager>
             let operating_info = libs::OperatingInfo {
                 latest_record_id: 0,
                 latest_sudo_record_id: 0,
+                user_list: vec![],
+                sudo_user_list: vec![],
             };
             let _: () = con
                 .json_set(
