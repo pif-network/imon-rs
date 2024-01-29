@@ -158,7 +158,7 @@ pub async fn user_rpc(
                 })))
             }
             UserRpcEventPayload::GetAllRecord => {
-                let records = perform_get_all_sudo_records(app_state.redis_pool).await?;
+                let records = perform_get_all_user_records(app_state.redis_pool).await?;
                 Ok(Json(serde_json::json!({
                     "status": "ok",
                     "data": {
@@ -206,7 +206,7 @@ pub async fn sudo_user_rpc(
                 })))
             }
             SudoUserRpcEventPayload::GetAllRecord => {
-                let records = perform_get_all_user_records(app_state.redis_pool).await?;
+                let records = perform_get_all_sudo_records(app_state.redis_pool).await?;
                 Ok(Json(serde_json::json!({
                     "status": "ok",
                     "data": {
