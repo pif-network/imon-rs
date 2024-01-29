@@ -94,7 +94,9 @@ pub(super) async fn perform_register_record(
         &serde_json::json!(user_data),
     )
     .await?;
-    tracing::debug!("new user: {:?}", user_data);
+    tracing::debug!("new_user: {:?}", user_data.user_name);
+
+    store_to_record_list(UserType::User, &user_data.user_name, redis_pool.clone()).await?;
 
     Ok(user_key)
 }
@@ -357,6 +359,9 @@ pub(super) async fn perform_sudo_register_record(
         &serde_json::json!(user_data),
     )
     .await?;
+    tracing::debug!("new_sudo_user: {:?}", user_data.user_name);
+
+    store_to_record_list(UserType::SudoUser, &user_data.user_name, redis_pool.clone()).await?;
 
     Ok(())
 }
@@ -501,4 +506,27 @@ async fn get_new_record_id(
         Some(id) => Ok(id),
         _ => Ok(0),
     }
+}
+
+/// Store newly created record's name to an according list.
+async fn store_to_record_list(
+    user_type: UserType,
+    user_name: &str,
+    redis_pool: Pool<RedisConnectionManager>,
+) -> Result<(), RuntimeError> {
+    let mut con = redis_pool.get().await.unwrap();
+
+    let key = match user_type {
+        UserType::User => OperatingInfoRedisJsonPath::UserList.to_string(),
+        UserType::SudoUser => OperatingInfoRedisJsonPath::SudoUserList.to_string(),
+    };
+
+    con.json_arr_append(
+        OperatingRedisKey::OperatingInfo.to_string(),
+        &key,
+        &user_name,
+    )
+    .await?;
+
+    Ok(())
 }
