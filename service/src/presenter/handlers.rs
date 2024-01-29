@@ -136,6 +136,12 @@ pub async fn user_rpc(
                     "status": "ok",
                 })))
             }
+            UserRpcEventPayload::UpdateTask(payload) => {
+                perform_update_task(payload, app_state.redis_pool).await?;
+                Ok(Json(serde_json::json!({
+                    "status": "ok",
+                })))
+            }
             UserRpcEventPayload::ResetRecord(payload) => {
                 perform_reset_record(payload, app_state.redis_pool).await?;
                 Ok(Json(serde_json::json!({

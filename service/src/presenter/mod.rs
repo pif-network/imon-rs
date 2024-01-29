@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use imon_derive::TryFromPayload;
 use libs::payload::{
     GetSingleRecordPayload, RegisterRecordPayload, ResetRecordPayload, StoreSTaskPayload,
-    StoreTaskPayload,
+    StoreTaskPayload, UpdateTaskPayload,
 };
 
 pub mod handlers;
@@ -50,6 +50,8 @@ pub enum UserRpcEventPayload {
     RegisterRecord(RegisterRecordPayload),
     #[serde(rename = "add_task")]
     AddTask(StoreTaskPayload),
+    #[serde(rename = "update_task")]
+    UpdateTask(UpdateTaskPayload),
     #[serde(rename = "reset_record")]
     ResetRecord(ResetRecordPayload),
     #[serde(rename = "get_single_record")]
