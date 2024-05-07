@@ -116,7 +116,7 @@ fn main() {
         .unwrap();
     // Format: $role:$user_name:$id
     let current_user_key = retrieve_user_key(&mut user_file);
-    let current_user_name = current_user_key.split(':').collect::<Vec<&str>>()[1];
+    let current_user_name = current_user_key.split(':').nth(1).unwrap_or("");
 
     let path = PathBuf::from("/tmp/imon-tmp.txt");
     let mut file = fs::File::options()
