@@ -79,7 +79,12 @@ fn get_latest_task_local(file: &mut fs::File) -> Task {
     }
 
     let last_line = content.lines().last().unwrap();
-    serde_json::from_str::<Task>(last_line).unwrap()
+    if let Ok(t) = serde_json::from_str::<Task>(last_line) {
+        // TODO: Pull from upstream if file is not empty.
+        t
+    } else {
+        Task::placeholder("fresh", TaskState::Placeholder)
+    }
 }
 
 fn retrieve_user_key(file: &mut fs::File) -> String {
