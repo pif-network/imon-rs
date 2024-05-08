@@ -1,14 +1,14 @@
-use std::path::PathBuf;
 use std::{
     fs,
     io::{Read, Write},
 };
 
-use clap::{Parser, Subcommand};
 use libs::payload::{RegisterRecordPayload, StoreTaskPayload};
-use serde::{Deserialize, Serialize};
-
 use libs::record::{Task, TaskState};
+
+use clap::{Parser, Subcommand};
+use dirs;
+use serde::{Deserialize, Serialize};
 
 use crate::util::make_request;
 
@@ -112,23 +112,30 @@ fn main() {
     };
     let request_client = reqwest::blocking::Client::new();
 
-    let user_path = PathBuf::from("/tmp/imon-user.txt");
+    let log_dir = dirs::state_dir().unwrap().join("imon/log");
+    if let Err(e) = fs::create_dir_all(&log_dir) {
+        eprintln!("Failed to create log directory: {}", e);
+        return;
+    }
+
+    let user_log_path = log_dir.join("user.log");
     let mut user_file = fs::File::options()
         .read(true)
         .write(true)
         .create(true)
-        .open(&user_path)
+        .open(&user_log_path)
         .unwrap();
+
     // Format: $role:$user_name:$id
     let current_user_key = retrieve_user_key(&mut user_file);
     let current_user_name = current_user_key.split(':').nth(1).unwrap_or("");
 
-    let path = PathBuf::from("/tmp/imon-tmp.txt");
+    let op_log_path = log_dir.join("imon.log");
     let mut file = fs::File::options()
         .read(true)
         .append(true)
         .create(true)
-        .open(path)
+        .open(op_log_path)
         .unwrap();
 
     let latest_task = get_latest_task_local(&mut file);
@@ -317,7 +324,7 @@ fn main() {
                                 .write(true)
                                 .create(true)
                                 .truncate(true)
-                                .open(user_path)
+                                .open(user_log_path)
                                 .unwrap();
 
                             if let Err(e) =
@@ -359,7 +366,7 @@ fn main() {
                                         .write(true)
                                         .create(true)
                                         .truncate(true)
-                                        .open(user_path)
+                                        .open(user_log_path)
                                         .unwrap();
 
                                     if let Err(e) = user_file.write_all(user_key.as_bytes()) {
@@ -384,11 +391,16 @@ fn main() {
             },
         }
     } else {
-        println!(
-            "{}. You are {}.",
-            current_user_name.to_uppercase(),
-            current_user_name
-        );
+        // Case: no commands, just `im`.
+        if !current_user_name.is_empty() {
+            println!(
+                "{}. You are {}.",
+                current_user_name.to_uppercase(),
+                current_user_name
+            );
+        } else {
+            println!("You are not logged in.")
+        }
     }
 }
 
