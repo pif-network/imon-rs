@@ -15,7 +15,7 @@ cli scmd *args:
 		cargo build im --path ./cli --offline
 		# cargo +nightly build -p im -Z no-index-update
 	else
-		cargo {{scmd}} -p cli {{args}}
+		cargo {{scmd}} -p im {{args}}
 	fi
 
 service scmd *args:
