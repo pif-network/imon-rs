@@ -75,7 +75,7 @@ fn get_latest_task_local(file: &mut fs::File) -> Task {
     file.read_to_string(&mut content).unwrap();
 
     if content.is_empty() {
-        return Task::placeholder("fresh", TaskState::Idle);
+        return Task::placeholder("fresh", TaskState::Placeholder);
     }
 
     let last_line = content.lines().last().unwrap();
@@ -172,6 +172,11 @@ fn main() {
                 }
             }
             Commands::Break => {
+                if current_user_key.is_empty() {
+                    println!("Please register yourself first.");
+                    return;
+                }
+
                 if latest_task.state == TaskState::Break {
                     println!("You are already on break.");
                     return;
@@ -203,6 +208,11 @@ fn main() {
                 }
             }
             Commands::Back {} => {
+                if current_user_key.is_empty() {
+                    println!("Please register yourself first.");
+                    return;
+                }
+
                 if latest_task.state == TaskState::Begin {
                     println!("You are already working on `{}`.", latest_task.name);
                     return;
@@ -234,6 +244,11 @@ fn main() {
                 }
             }
             Commands::Done {} => {
+                if current_user_key.is_empty() {
+                    println!("Please register yourself first.");
+                    return;
+                }
+
                 if latest_task.state == TaskState::End {
                     println!("You are not working on anything.");
                     return;
@@ -265,6 +280,13 @@ fn main() {
                 }
             }
             Commands::Check {} => {
+                if current_user_key.is_empty() {
+                    println!("Please register yourself first.");
+                    return;
+                } else if latest_task.is_placeholder() {
+                    println!("Ready for new challenges!");
+                    return;
+                }
                 println!("You are working on `{}`.", latest_task.name);
             }
             Commands::Auth { 0: auth_command } => match auth_command {
@@ -356,8 +378,6 @@ fn main() {
                 }
             },
         }
-    } else if current_user_name.is_empty() {
-        println!("Please register yourself.");
     } else {
         println!(
             "{}. You are {}.",

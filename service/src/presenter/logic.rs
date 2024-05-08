@@ -84,7 +84,7 @@ pub(super) async fn perform_register_record(
         id,
         user_name: payload.user_name,
         task_history: vec![],
-        current_task: Task::placeholder("initialised", TaskState::Idle),
+        current_task: Task::placeholder("initialised", TaskState::Placeholder),
     };
 
     let mut con = redis_pool.get().await.unwrap();
@@ -130,7 +130,7 @@ pub(super) async fn perform_reset_record(
             })?,
         user_name: vec_payload_key[0].to_string(),
         task_history: vec![],
-        current_task: Task::placeholder("reset", TaskState::Idle),
+        current_task: Task::placeholder("reset", TaskState::Placeholder),
     };
     con.json_set(
         &payload.key,

@@ -8,7 +8,7 @@ pub enum TaskState {
     Break,
     Back,
     End,
-    Idle,
+    Placeholder,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,7 +24,7 @@ impl Default for Task {
     fn default() -> Self {
         Task {
             name: String::new(),
-            state: TaskState::Idle,
+            state: TaskState::Placeholder,
             begin_time: chrono::offset::Local::now().naive_local(),
             end_time: chrono::offset::Local::now().naive_local(),
             duration: 0,
@@ -39,6 +39,10 @@ impl Task {
             state,
             ..Task::default()
         }
+    }
+
+    pub fn is_placeholder(&self) -> bool {
+        self.state == TaskState::Placeholder
     }
 
     pub fn generate_begin_task(name: String) -> Self {
