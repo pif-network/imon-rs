@@ -7,9 +7,13 @@ alias i := impl
 cli scmd *args:
 	#!/bin/bash
 	if [ {{scmd}} = "ir" ]; then 
-		cargo +nightly install im --path ./cli -Z no-index-update
-	elif [ {{scmd}} = "build" ]; then
-		cargo +nightly build -p im -Z no-index-update
+		cargo install im --path ./cli
+	elif [ {{scmd}} = "ir:now" ]; then
+		cargo install im --path ./cli --offline
+		# cargo +nightly install im --path ./cli -Z no-index-update
+	elif [ {{scmd}} = "build:now" ]; then
+		cargo build im --path ./cli --offline
+		# cargo +nightly build -p im -Z no-index-update
 	else
 		cargo {{scmd}} -p cli {{args}}
 	fi
